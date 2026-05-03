@@ -37,11 +37,11 @@ Resultat observe apres extraction du chunking :
 | `rag.config` | 0.013s |
 | `rag.models` | 0.013s |
 | `rag.chunking` | 0.001s |
-| `rag.retrieval` | environ 0.007s |
+| `rag.retrieval` | environ 0.031s |
 | `rag.llm` | 0.000s |
 | `rag.embeddings` | 0.023s |
 | `rag.ingestion` | 0.044s |
-| `rag.engine` | 0.083s |
+| `rag.engine` | environ 0.046s |
 | `rag_pdf` | 0.000s |
 
 Lecture :

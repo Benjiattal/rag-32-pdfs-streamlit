@@ -18,6 +18,7 @@ import unicodedata
 from collections.abc import Callable
 
 from rag.config import DEFAULT_QUERY_REWRITE_LLM
+from rag.models import FiltreMetadata, Morceau
 
 
 def normaliser_texte_recherche(texte: str) -> str:
@@ -423,3 +424,62 @@ def construire_requetes_recherche(
     ajouter_requete_unique(requetes, "expansion synonymes", question_enrichie)
 
     return requetes
+
+
+def fusionner_candidats_multi_requetes(
+    resultats_par_requete: list[tuple[str, list[tuple[float, int]]]],
+    morceaux: list[Morceau],
+    filtre: FiltreMetadata,
+) -> list[tuple[float, Morceau]]:
+    """
+    Fusionne les candidats FAISS issus de plusieurs requetes.
+
+    Chaque recherche FAISS retourne des indices de chunks. Le meme chunk peut
+    apparaitre dans plusieurs requetes :
+    - question originale ;
+    - reformulation LLM ;
+    - expansion synonymes.
+
+    Principe de fusion :
+    - on garde un seul exemplaire du chunk ;
+    - on conserve son meilleur score FAISS ;
+    - on ajoute un petit bonus s'il a ete retrouve par plusieurs requetes.
+
+    Ce bonus reste volontairement faible : il signale la robustesse du match sans
+    ecraser BM25, les heuristiques metier ou le reranker LLM.
+    """
+    meilleurs_scores: dict[int, float] = {}
+    nombre_requetes_match: dict[int, int] = {}
+
+    for _, resultats_requete in resultats_par_requete:
+        indices_vus_pour_requete: set[int] = set()
+
+        for score, indice in resultats_requete:
+            if indice == -1 or indice < 0 or indice >= len(morceaux):
+                continue
+
+            morceau = morceaux[indice]
+
+            if not filtre.accepte(morceau):
+                continue
+
+            score_float = float(score)
+            meilleurs_scores[indice] = max(
+                score_float,
+                meilleurs_scores.get(indice, score_float),
+            )
+
+            if indice not in indices_vus_pour_requete:
+                nombre_requetes_match[indice] = nombre_requetes_match.get(indice, 0) + 1
+                indices_vus_pour_requete.add(indice)
+
+    candidats: list[tuple[float, Morceau]] = []
+
+    for indice, score in meilleurs_scores.items():
+        bonus_multi_requetes = 0.03 * max(
+            0,
+            nombre_requetes_match.get(indice, 1) - 1,
+        )
+        candidats.append((score + bonus_multi_requetes, morceaux[indice]))
+
+    return sorted(candidats, key=lambda candidat: candidat[0], reverse=True)
