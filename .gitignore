@@ -1,0 +1,13 @@
+.env
+.venv/
+.venv*/
+__pycache__/
+*.pyc
+.DS_Store
+data/index/*
+!data/index/.gitkeep
+data/pdfs/*.pdf
+!data/pdfs/.gitkeep
+data/web/*
+!data/web/.gitkeep
+static/pdfs/*.pdf
