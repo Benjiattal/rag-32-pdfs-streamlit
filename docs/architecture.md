@@ -97,7 +97,7 @@ flowchart LR
 | Modeles de donnees | Definir le contrat entre modules | `rag/models.py` |
 | LLM | Creer le client OpenAI et appeler le modele final | `rag/llm.py` |
 | Ingestion | Lire PDF et pages web autorisees | PyMuPDF, BeautifulSoup |
-| Chunking | Decouper par sections, phrases, tableaux | Python |
+| Chunking | Decouper par sections, phrases, tableaux | `rag/chunking.py` |
 | Embeddings | Transformer le texte en vecteurs et gerer le cache local | `rag/embeddings.py`, OpenAI `text-embedding-3-small` |
 | Vector store | Stocker et chercher les vecteurs | FAISS |
 | Hybrid retrieval | Combiner semantique et lexical | FAISS + BM25 maison |
@@ -118,8 +118,12 @@ des chunks retrouves. La qualite depend donc d'abord du retrieval :
 ## Choix actuels
 
 - Python 3.11.4 pour stabiliser Streamlit, FAISS, PyTorch et BGE.
-- `rag/config.py`, `rag/models.py`, `rag/llm.py` et `rag/embeddings.py` sont
-  extraits du moteur pour reduire le cote monolithique sans refactor risqué.
+- `rag/config.py`, `rag/models.py`, `rag/llm.py`, `rag/embeddings.py` et
+  `rag/chunking.py` sont extraits du moteur pour reduire le cote monolithique
+  sans refactor risque.
+- `rag/engine.py` reste l'orchestrateur historique. Les prochaines extractions
+  doivent etre faites par domaines coherents : ingestion, retrieval, reranking,
+  puis prompt/contexte une fois les dependances metier isolees.
 - FAISS local pour garder un POC simple, rapide et sans service externe.
 - BM25 en complement de FAISS pour mieux capter les noms produits et acronymes.
 - BGE optionnel : utile pour departager des chunks proches, mais pas toujours

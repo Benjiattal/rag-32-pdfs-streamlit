@@ -8,6 +8,8 @@ Pour une explication d'architecture plus visuelle, lis aussi :
 
 ```text
 docs/architecture.md
+docs/refactorisation.md
+docs/performance.md
 ```
 
 Un RAG fait plusieurs choses :
@@ -317,7 +319,34 @@ Pourquoi cette approche ?
 - le modèle répond depuis un contexte contrôlé, pas depuis une navigation libre ;
 - tu peux mélanger PDF locaux et pages web officielles dans le même FAISS.
 
-## 8. Nouvelles briques RAG
+## 10. Organisation du code
+
+Le projet est en cours de simplification progressive.
+
+Les briques deja sorties du moteur principal :
+
+- `rag/config.py` : chemins, modeles et valeurs par defaut ;
+- `rag/models.py` : structures de donnees partagees ;
+- `rag/llm.py` : client OpenAI et generation finale ;
+- `rag/embeddings.py` : embeddings OpenAI et cache local ;
+- `rag/chunking.py` : decoupage par sections et phrases.
+
+`rag/engine.py` reste l'orchestrateur historique du pipeline. La prochaine
+extraction recommandee est l'ingestion PDF/Web, puis le retrieval.
+
+Pour suivre la strategie de simplification :
+
+```text
+docs/refactorisation.md
+```
+
+Pour voir les controles de performance locaux :
+
+```text
+docs/performance.md
+```
+
+## 11. Nouvelles briques RAG
 
 ### Chunking intelligent par phrases
 
