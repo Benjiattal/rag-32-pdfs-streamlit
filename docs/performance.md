@@ -17,6 +17,7 @@ for mod in [
     "rag.config",
     "rag.models",
     "rag.chunking",
+    "rag.retrieval",
     "rag.llm",
     "rag.embeddings",
     "rag.engine",
@@ -36,6 +37,7 @@ Resultat observe apres extraction du chunking :
 | `rag.config` | 0.013s |
 | `rag.models` | 0.013s |
 | `rag.chunking` | 0.001s |
+| `rag.retrieval` | 0.009s |
 | `rag.llm` | 0.000s |
 | `rag.embeddings` | 0.023s |
 | `rag.ingestion` | 0.044s |
