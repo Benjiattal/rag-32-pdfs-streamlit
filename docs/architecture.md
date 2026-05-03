@@ -119,9 +119,9 @@ des chunks retrouves. La qualite depend donc d'abord du retrieval :
 
 - Python 3.11.4 pour stabiliser Streamlit, FAISS, PyTorch et BGE.
 - `rag/config.py`, `rag/models.py`, `rag/llm.py`, `rag/embeddings.py`,
-  `rag/chunking.py`, `rag/ingestion.py` et les fonctions lexicales de
-  `rag/retrieval.py` sont extraits du moteur pour reduire le cote monolithique
-  sans refactor risque.
+  `rag/chunking.py`, `rag/ingestion.py` et les fonctions lexicales / expansion
+  deterministe de `rag/retrieval.py` sont extraits du moteur pour reduire le
+  cote monolithique sans refactor risque.
 - `rag/engine.py` reste l'orchestrateur historique. Les prochaines extractions
   doivent continuer par petits blocs : orchestration retrieval, reranking, puis
   prompt/contexte une fois les dependances metier isolees.

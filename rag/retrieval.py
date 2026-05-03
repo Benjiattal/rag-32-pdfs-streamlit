@@ -155,3 +155,153 @@ def scores_bm25(question: str, textes: list[str]) -> list[float]:
 
     # Normalisation entre 0 et 1 pour combiner proprement avec le score FAISS.
     return [score / score_max for score in scores]
+
+
+def enrichir_question_pour_recherche(question: str) -> str:
+    """
+    Ajoute des synonymes utiles uniquement pour la recherche.
+
+    Important :
+    - La question originale reste celle envoyee au modele.
+    - Cette version enrichie sert seulement a mieux recuperer les chunks.
+
+    Pourquoi ?
+    Un utilisateur peut ecrire "GSI", alors que les PDF parlent de
+    "Global System Integrator", "system integrator", "partners" ou "go-to-market".
+    Sans expansion, FAISS peut passer a cote de passages pertinents.
+    """
+    enrichissements = []
+    question_minuscule = question.lower()
+
+    if "gsi" in question_minuscule:
+        enrichissements.append(
+            "global system integrator system integrator partner partners "
+            "technology alliance program go-to-market business synergy "
+            "joint solutions customer outcomes professional services "
+            "managed services implementation deployment customer transformation"
+        )
+
+    if "evergreen" in question_minuscule:
+        enrichissements.append(
+            "evergreen architecture ever modern nondisruptive upgrade "
+            "no data migration no planned downtime subscription"
+        )
+
+    if "everpure" in question_minuscule:
+        enrichissements.append(
+            "Everpure Platform Everpure Fusion Pure1 Evergreen Architecture "
+            "Evergreen One Cloud Dedicated FlashArray FlashBlade unified data plane "
+            "intelligent control plane policy driven automation AIOps"
+        )
+
+    if "solution" in question_minuscule or "solutions" in question_minuscule:
+        enrichissements.append(
+            "portfolio platform products services capabilities use cases "
+            "FlashArray FlashBlade Pure1 Everpure Fusion Evergreen One "
+            "Cloud Dedicated Portworx"
+        )
+
+    if any(
+        mot in question_minuscule
+        for mot in [
+            "volumetrie",
+            "volumetries",
+            "volum\u00e9trie",
+            "volum\u00e9tries",
+            "capacite",
+            "capacites",
+            "capacit\u00e9",
+            "capacit\u00e9s",
+            "capacity",
+            "capacities",
+        ]
+    ):
+        enrichissements.append(
+            "capacity capacities volumetry volume storage raw capacity effective capacity "
+            "usable capacity maximum capacity up to PB PiB TB TiB data reduction "
+            "FlashArray//XL FlashArray//ST FlashArray family FlashBlade//S "
+            "FlashBlade//E FlashBlade//EXA Cloud Dedicated Cloud Block Store "
+            "Portworx DirectFlash Shelf technical specifications"
+        )
+
+    mots_puissance = [
+        "consommation",
+        "consommations",
+        "electrique",
+        "electriques",
+        "\u00e9lectrique",
+        "\u00e9lectriques",
+        "watts",
+        "watt",
+        "puissance",
+        "power",
+    ]
+    if any(mot in question_minuscule for mot in mots_puissance):
+        enrichissements.append(
+            "power consumption watts watt typical peak physical specifications "
+            "technical specifications physical capacity power and cooling "
+            "2,635 3,455 2,475 3,160 2,115 2,700 566 667"
+        )
+
+    if "flasharray xl" in question_minuscule or "flasharray//xl" in question_minuscule:
+        enrichissements.append(
+            "FlashArray//XL FlashArray XL XL190 R5 XL170 R5 XL130 R5 "
+            "DirectFlash Shelf technical specifications"
+        )
+
+    if "flasharray" in question_minuscule and any(
+        mot in question_minuscule
+        for mot in [
+            "serveur",
+            "serveurs",
+            "server",
+            "servers",
+            "modele",
+            "modeles",
+            "mod\u00e8le",
+            "mod\u00e8les",
+            "gamme",
+            "famille",
+            "liste",
+            "tous",
+            "toutes",
+        ]
+    ):
+        enrichissements.append(
+            "FlashArray models FlashArray family product line storage arrays "
+            "FlashArray//ST FlashArray//XL R5 FlashArray//X R5 FlashArray//C R5 "
+            "FlashArray//E FlashArray Models Model Optimized For Strengths Capacity raw "
+            "XL190 R5 XL170 R5 XL130 R5 X10 X20 X50 X70 X90 C20 C40 C60 C70 C90"
+        )
+
+    if "flashblade" in question_minuscule and any(
+        mot in question_minuscule
+        for mot in [
+            "baie",
+            "baies",
+            "stockage",
+            "gamme",
+            "famille",
+            "liste",
+            "tous",
+            "toutes",
+            "modele",
+            "modeles",
+            "mod\u00e8le",
+            "mod\u00e8les",
+            "descriptif",
+            "description",
+        ]
+    ):
+        enrichissements.append(
+            "FlashBlade product family storage arrays unified file object storage "
+            "FlashBlade//S FlashBlade//S500 FlashBlade//E FlashBlade//EXA "
+            "FlashBlade S FlashBlade E FlashBlade EXA AI HPC neocloud "
+            "repository workloads unstructured data high performance scale-out "
+            "capacity optimized disaggregated architecture metadata data nodes"
+        )
+
+    if not enrichissements:
+        return question
+
+    return question + "\n\nTermes de recherche additionnels : " + " ".join(enrichissements)
