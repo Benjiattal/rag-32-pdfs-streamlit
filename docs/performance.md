@@ -20,6 +20,7 @@ for mod in [
     "rag.llm",
     "rag.embeddings",
     "rag.engine",
+    "rag.ingestion",
     "rag_pdf",
 ]:
     t = time.perf_counter()
@@ -37,7 +38,8 @@ Resultat observe apres extraction du chunking :
 | `rag.chunking` | 0.001s |
 | `rag.llm` | 0.000s |
 | `rag.embeddings` | 0.023s |
-| `rag.engine` | 0.027s |
+| `rag.ingestion` | 0.044s |
+| `rag.engine` | 0.041s |
 | `rag_pdf` | 0.000s |
 
 Lecture :

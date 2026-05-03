@@ -21,7 +21,8 @@ large. La strategie retenue est donc progressive :
 | Appels LLM | `rag/llm.py` | Extrait |
 | Embeddings et cache | `rag/embeddings.py` | Extrait |
 | Chunking | `rag/chunking.py` | Extrait |
-| Ingestion PDF / Web | `rag/ingestion.py` | Facade a extraire |
+| Environnement local | `rag/env.py` | Extrait |
+| Ingestion PDF / Web | `rag/ingestion.py` | Extrait |
 | Retrieval / BM25 / filtres | `rag/retrieval.py` | Facade a extraire |
 | Reranking LLM / BGE | `rag/reranking.py` | Facade a extraire |
 | Prompt et contexte long | futur `rag/prompting.py` | A faire apres retrieval |
@@ -51,6 +52,8 @@ for path in [
     "rag/llm.py",
     "rag/embeddings.py",
     "rag/chunking.py",
+    "rag/env.py",
+    "rag/ingestion.py",
     "rag/engine.py",
     "rag_pdf.py",
 ]:
@@ -64,13 +67,17 @@ depuis l'interface ou la CLI.
 
 ## Prochaine extraction recommandee
 
-La prochaine extraction logique est `rag/ingestion.py`, car elle regroupe :
+La prochaine extraction logique est `rag/retrieval.py`.
 
-- lecture PDF ;
-- extraction de tableaux ;
-- lecture web controlee ;
-- sauvegarde des chunks web ;
-- reconstruction de l'index.
+Elle doit etre faite avec plus de prudence que l'ingestion, car elle porte :
 
-Elle est moins risquee que `retrieval.py`, qui porte beaucoup de logique metier
-adaptative.
+- la normalisation lexicale ;
+- BM25 ;
+- l'expansion de requete ;
+- les filtres metadata ;
+- les heuristiques FlashArray / FlashBlade ;
+- les parametres adaptatifs.
+
+Pour limiter le risque, il faudra probablement extraire d'abord les fonctions
+pures de scoring et de normalisation, puis seulement ensuite la fonction
+`rechercher()`.

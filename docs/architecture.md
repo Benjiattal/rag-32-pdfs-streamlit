@@ -118,12 +118,12 @@ des chunks retrouves. La qualite depend donc d'abord du retrieval :
 ## Choix actuels
 
 - Python 3.11.4 pour stabiliser Streamlit, FAISS, PyTorch et BGE.
-- `rag/config.py`, `rag/models.py`, `rag/llm.py`, `rag/embeddings.py` et
-  `rag/chunking.py` sont extraits du moteur pour reduire le cote monolithique
-  sans refactor risque.
+- `rag/config.py`, `rag/models.py`, `rag/llm.py`, `rag/embeddings.py`,
+  `rag/chunking.py` et `rag/ingestion.py` sont extraits du moteur pour reduire
+  le cote monolithique sans refactor risque.
 - `rag/engine.py` reste l'orchestrateur historique. Les prochaines extractions
-  doivent etre faites par domaines coherents : ingestion, retrieval, reranking,
-  puis prompt/contexte une fois les dependances metier isolees.
+  doivent etre faites par domaines coherents : retrieval, reranking, puis
+  prompt/contexte une fois les dependances metier isolees.
 - FAISS local pour garder un POC simple, rapide et sans service externe.
 - BM25 en complement de FAISS pour mieux capter les noms produits et acronymes.
 - BGE optionnel : utile pour departager des chunks proches, mais pas toujours
