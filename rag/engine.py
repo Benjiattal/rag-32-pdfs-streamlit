@@ -115,6 +115,9 @@ from rag.retrieval import (
     score_lexical,
     scores_bm25,
     enrichir_question_pour_recherche,
+    ajouter_requete_unique,
+    construire_question_recherche as construire_question_recherche_locale,
+    construire_requetes_recherche as construire_requetes_recherche_locales,
 )
 
 
@@ -287,65 +290,17 @@ def construire_question_recherche(
     utiliser_query_rewrite_llm: bool | None = None,
 ) -> str:
     """
-    Construit la question réellement envoyée aux embeddings.
+    Wrapper historique qui injecte la reformulation LLM dans le retrieval local.
 
-    Elle combine deux approches :
-    1. Query rewriting LLM : dynamique, utile pour fautes, synonymes, acronymes.
-    2. Expansion déterministe : stable, maîtrisée, adaptée à notre corpus.
-
-    La question originale reste intacte pour la génération finale. Cette version
-    enrichie sert uniquement à mieux retrouver les bons chunks.
+    La mecanique de construction vit maintenant dans `rag.retrieval`. L'appel
+    OpenAI reste ici pour eviter les imports circulaires et garder une separation
+    claire entre logique locale et appel reseau.
     """
-    if utiliser_query_rewrite_llm is None:
-        utiliser_query_rewrite_llm = variable_env_booleenne(
-            "RAG_QUERY_REWRITE_LLM",
-            DEFAULT_QUERY_REWRITE_LLM,
-        )
-
-    question_regles = enrichir_question_pour_recherche(question)
-    rewrite_llm = ""
-
-    if utiliser_query_rewrite_llm:
-        rewrite_llm = reecrire_question_avec_llm(question)
-
-    if not rewrite_llm:
-        return question_regles
-
-    return (
-        f"{question}\n\n"
-        f"Reformulation LLM pour recherche : {rewrite_llm}\n\n"
-        f"{question_regles}"
+    return construire_question_recherche_locale(
+        question,
+        utiliser_query_rewrite_llm=utiliser_query_rewrite_llm,
+        rewrite_fn=reecrire_question_avec_llm,
     )
-
-
-def ajouter_requete_unique(
-    requetes: list[tuple[str, str]],
-    libelle: str,
-    requete: str,
-) -> None:
-    """
-    Ajoute une requete de recherche seulement si elle apporte du contenu nouveau.
-
-    Pourquoi ?
-    En multi-requetes, on veut eviter d'envoyer trois fois la meme question a
-    FAISS. Cela economise des embeddings, reduit le bruit et rend le debug plus
-    lisible.
-    """
-    requete = " ".join(requete.split())
-
-    if not requete:
-        return
-
-    requete_normalisee = normaliser_texte_recherche(requete)
-    deja_presentes = {
-        normaliser_texte_recherche(requete_existante)
-        for _, requete_existante in requetes
-    }
-
-    if requete_normalisee in deja_presentes:
-        return
-
-    requetes.append((libelle, requete))
 
 
 def construire_requetes_recherche(
@@ -353,39 +308,14 @@ def construire_requetes_recherche(
     utiliser_query_rewrite_llm: bool | None = None,
 ) -> list[tuple[str, str]]:
     """
-    Construit plusieurs requetes de retrieval au lieu d'une seule grosse requete.
-
-    Ancienne approche :
-    on concaténait question + rewrite LLM + synonymes dans un seul texte. Cela
-    marche, mais une requete trop longue peut diluer le signal dans l'embedding.
-
-    Nouvelle approche :
-    1. requete utilisateur originale ;
-    2. reformulation LLM courte, si active ;
-    3. expansion déterministe avec synonymes et acronymes métier.
-
-    Ensuite `rechercher()` lance FAISS pour chaque requete, fusionne les candidats
-    et laisse BM25 + heuristiques + reranker LLM classer le tout. C'est plus
-    robuste car un chunk peut remonter par le sens, par les synonymes ou par les
-    termes exacts.
+    Wrapper historique pour construire les requetes avec query rewrite LLM optionnel.
     """
-    if utiliser_query_rewrite_llm is None:
-        utiliser_query_rewrite_llm = variable_env_booleenne(
-            "RAG_QUERY_REWRITE_LLM",
-            DEFAULT_QUERY_REWRITE_LLM,
-        )
+    return construire_requetes_recherche_locales(
+        question,
+        utiliser_query_rewrite_llm=utiliser_query_rewrite_llm,
+        rewrite_fn=reecrire_question_avec_llm,
+    )
 
-    requetes: list[tuple[str, str]] = []
-    ajouter_requete_unique(requetes, "question originale", question)
-
-    if utiliser_query_rewrite_llm:
-        rewrite_llm = reecrire_question_avec_llm(question)
-        ajouter_requete_unique(requetes, "reformulation LLM", rewrite_llm)
-
-    question_enrichie = enrichir_question_pour_recherche(question)
-    ajouter_requete_unique(requetes, "expansion synonymes", question_enrichie)
-
-    return requetes
 
 
 def statistiques_cache_query_rewrite() -> dict[str, int | bool]:

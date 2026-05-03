@@ -332,12 +332,12 @@ Les briques deja sorties du moteur principal :
 - `rag/chunking.py` : decoupage par sections et phrases.
 - `rag/env.py` : chargement local du fichier `.env` ;
 - `rag/ingestion.py` : lecture PDF/Web, indexation FAISS et chargement d'index.
-- `rag/retrieval.py` : normalisation lexicale, tokenisation, score BM25 et
-  expansion deterministe de requete.
+- `rag/retrieval.py` : normalisation lexicale, tokenisation, score BM25,
+  expansion deterministe de requete et construction multi-requetes.
 
 `rag/engine.py` reste l'orchestrateur historique du pipeline. La prochaine
-extraction recommandee est la suite du retrieval, en commencant par la fusion
-des candidats et les filtres simples, avant de toucher aux heuristiques metier.
+extraction recommandee est la suite du retrieval : fusion des candidats, filtres
+simples, puis seulement ensuite heuristiques metier.
 
 Pour suivre la strategie de simplification :
 

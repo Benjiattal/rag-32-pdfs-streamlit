@@ -12,8 +12,12 @@ l'instant dans `rag.engine`.
 from __future__ import annotations
 
 import math
+import os
 import re
 import unicodedata
+from collections.abc import Callable
+
+from rag.config import DEFAULT_QUERY_REWRITE_LLM
 
 
 def normaliser_texte_recherche(texte: str) -> str:
@@ -305,3 +309,117 @@ def enrichir_question_pour_recherche(question: str) -> str:
         return question
 
     return question + "\n\nTermes de recherche additionnels : " + " ".join(enrichissements)
+
+
+def variable_env_booleenne(nom: str, valeur_defaut: bool) -> bool:
+    """
+    Lit une variable d'environnement comme un booleen.
+
+    Cette petite fonction est dupliquee ici volontairement pour garder
+    `rag.retrieval` independant de `rag.engine` et eviter un import circulaire.
+    """
+    valeur = os.getenv(nom)
+
+    if valeur is None:
+        return valeur_defaut
+
+    return valeur.strip().lower() in {"1", "true", "yes", "oui", "on"}
+
+
+def construire_question_recherche(
+    question: str,
+    utiliser_query_rewrite_llm: bool | None = None,
+    rewrite_fn: Callable[[str], str] | None = None,
+) -> str:
+    """
+    Construit la question réellement envoyée aux embeddings.
+
+    Elle combine deux approches :
+    1. Query rewriting LLM : dynamique, utile pour fautes, synonymes, acronymes.
+    2. Expansion déterministe : stable, maîtrisée, adaptée à notre corpus.
+
+    `rewrite_fn` est injectee par `rag.engine`, car l'appel OpenAI reste dans le
+    moteur historique pour le moment. Sans `rewrite_fn`, la fonction reste 100 %
+    locale et utilise seulement l'expansion deterministe.
+    """
+    if utiliser_query_rewrite_llm is None:
+        utiliser_query_rewrite_llm = variable_env_booleenne(
+            "RAG_QUERY_REWRITE_LLM",
+            DEFAULT_QUERY_REWRITE_LLM,
+        )
+
+    question_regles = enrichir_question_pour_recherche(question)
+    rewrite_llm = ""
+
+    if utiliser_query_rewrite_llm and rewrite_fn is not None:
+        rewrite_llm = rewrite_fn(question)
+
+    if not rewrite_llm:
+        return question_regles
+
+    return (
+        f"{question}\n\n"
+        f"Reformulation LLM pour recherche : {rewrite_llm}\n\n"
+        f"{question_regles}"
+    )
+
+
+def ajouter_requete_unique(
+    requetes: list[tuple[str, str]],
+    libelle: str,
+    requete: str,
+) -> None:
+    """
+    Ajoute une requete de recherche seulement si elle apporte du contenu nouveau.
+
+    En multi-requetes, on veut eviter d'envoyer trois fois la meme question a
+    FAISS. Cela economise des embeddings, reduit le bruit et rend le debug plus
+    lisible.
+    """
+    requete = " ".join(requete.split())
+
+    if not requete:
+        return
+
+    requete_normalisee = normaliser_texte_recherche(requete)
+    deja_presentes = {
+        normaliser_texte_recherche(requete_existante)
+        for _, requete_existante in requetes
+    }
+
+    if requete_normalisee in deja_presentes:
+        return
+
+    requetes.append((libelle, requete))
+
+
+def construire_requetes_recherche(
+    question: str,
+    utiliser_query_rewrite_llm: bool | None = None,
+    rewrite_fn: Callable[[str], str] | None = None,
+) -> list[tuple[str, str]]:
+    """
+    Construit plusieurs requetes de retrieval au lieu d'une seule grosse requete.
+
+    Requetes produites :
+    1. question utilisateur originale ;
+    2. reformulation LLM courte, si active et si `rewrite_fn` est fournie ;
+    3. expansion deterministe avec synonymes et acronymes metier.
+    """
+    if utiliser_query_rewrite_llm is None:
+        utiliser_query_rewrite_llm = variable_env_booleenne(
+            "RAG_QUERY_REWRITE_LLM",
+            DEFAULT_QUERY_REWRITE_LLM,
+        )
+
+    requetes: list[tuple[str, str]] = []
+    ajouter_requete_unique(requetes, "question originale", question)
+
+    if utiliser_query_rewrite_llm and rewrite_fn is not None:
+        rewrite_llm = rewrite_fn(question)
+        ajouter_requete_unique(requetes, "reformulation LLM", rewrite_llm)
+
+    question_enrichie = enrichir_question_pour_recherche(question)
+    ajouter_requete_unique(requetes, "expansion synonymes", question_enrichie)
+
+    return requetes
