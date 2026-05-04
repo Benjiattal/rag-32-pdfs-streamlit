@@ -202,9 +202,9 @@ def construire_question_recherche(
     1. Query rewriting LLM : dynamique, utile pour fautes, synonymes, acronymes.
     2. Expansion déterministe : stable, maîtrisée, adaptée à notre corpus.
 
-    `rewrite_fn` est injectee par `rag.engine`, car l'appel OpenAI reste dans le
-    moteur historique pour le moment. Sans `rewrite_fn`, la fonction reste 100 %
-    locale et utilise seulement l'expansion deterministe.
+    `rewrite_fn` est injectee par `rag.query_rewrite`, car l'appel OpenAI reste
+    optionnel. Sans `rewrite_fn`, la fonction reste 100 % locale et utilise
+    seulement l'expansion deterministe.
     """
     if utiliser_query_rewrite_llm is None:
         utiliser_query_rewrite_llm = variable_env_booleenne(

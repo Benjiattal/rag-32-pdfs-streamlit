@@ -24,6 +24,7 @@ large. La strategie retenue est donc progressive :
 | Environnement local | `rag/env.py` | Extrait |
 | Ingestion PDF / Web | `rag/ingestion.py` | Extrait |
 | Retrieval lexical / BM25 / expansion / multi-requetes / fusion candidats / filtres simples | `rag/retrieval.py` | Fonctions locales extraites |
+| Query rewrite LLM | `rag/query_rewrite.py` | Extrait |
 | Profils metier optionnels | `rag/profiles.py`, `rag/domain_profiles/`, `rag/everpure.py` | Extrait |
 | Retrieval orchestration | `rag/engine.py` | Reste orchestrateur |
 | Reranking LLM / BGE | `rag/reranking.py` | Extrait |
@@ -36,10 +37,10 @@ prompt, generation. Ces etapes se passent des objets entre elles. Une extraction
 trop rapide peut creer des imports circulaires ou changer subtilement le
 comportement.
 
-Exemple : les aides propres au profil Everpure, le prompt final et le reranking
-BGE/LLM ont ete sortis du moteur principal. Le prochain risque concerne surtout
-la reformulation LLM de requete, car elle melange cache, profil actif et appel
-reseau optionnel.
+Exemple : les aides propres au profil Everpure, le prompt final, le reranking
+BGE/LLM et la reformulation LLM ont ete sortis du moteur principal. Le prochain
+risque concerne surtout `rechercher()`, car cette fonction orchestre embeddings,
+FAISS, filtres, reranking et diversification.
 
 ## Regles de verification
 
@@ -69,15 +70,15 @@ depuis l'interface ou la CLI.
 
 ## Prochaine extraction recommandee
 
-La prochaine extraction logique est `rag/query_rewrite.py`.
+La prochaine extraction logique est `rag/search.py` ou `rag/orchestrator.py`.
 
 Elle devrait contenir :
 
-- le cache de reformulation ;
-- la cle de cache qui inclut le profil actif ;
-- le prompt de reformulation ;
-- l'appel OpenAI optionnel ;
-- les statistiques du cache query rewrite.
+- la fonction `rechercher()` ;
+- l'application des parametres adaptatifs ;
+- le passage multi-requetes vers FAISS ;
+- l'application des filtres techniques ;
+- le choix des rerankers optionnels.
 
 La fonction `rechercher()` peut rester dans `rag/engine.py` tant que
 l'orchestration globale n'est pas stabilisee. C'est un choix volontaire : mieux

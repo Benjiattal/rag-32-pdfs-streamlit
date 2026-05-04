@@ -11,6 +11,7 @@ le code est maintenant expose via le package `rag/` :
 - `rag.chunking` : decoupage intelligent par phrases/sections ;
 - `rag.embeddings` : embeddings OpenAI et cache ;
 - `rag.retrieval` : FAISS, BM25, filtres metadata, top_k adaptatif ;
+- `rag.query_rewrite` : reformulation LLM optionnelle pour le retrieval ;
 - `rag.reranking` : reranking hybride et LLM ;
 - `rag.prompting` : contexte long, prompt final et consignes de citation ;
 - `rag.llm` : appel au modele de generation.
