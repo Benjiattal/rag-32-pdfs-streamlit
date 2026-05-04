@@ -1,5 +1,7 @@
 # RAG documentaire générique pour démonstration Sales Engineering
 
+[![tests](https://github.com/Benjiattal/rag-32-pdfs-streamlit/actions/workflows/tests.yml/badge.svg)](https://github.com/Benjiattal/rag-32-pdfs-streamlit/actions/workflows/tests.yml)
+
 Ce projet est un démonstrateur RAG local pour interroger un corpus de PDF avec
 des réponses sourcées. Il a été construit comme un support de crédibilité pour
 des rôles **Sales Specialist** ou **Sales Engineering** : expliquer une
@@ -23,7 +25,17 @@ docs/sales-engineering-demo.md
 docs/architecture.md
 docs/refactorisation.md
 docs/performance.md
+docs/demo-script.md
+sample_corpus/README.md
 ```
+
+## What this project demonstrates
+
+- How to turn a controlled PDF corpus into a sourced AI assistant.
+- How retrieval quality is improved with chunking, FAISS, BM25, query expansion
+  and optional reranking.
+- How to make a RAG explainable through citations, source links and trace views.
+- How to structure a small AI project with tests, evaluation scripts and CI.
 
 ## Pourquoi ce projet est intéressant pour un rôle Sales / SE
 
@@ -237,6 +249,12 @@ Pour afficher les sources détaillées :
 python rag_pdf.py demander "Quels sont les points importants du document ?" --sources
 ```
 
+Pour inspecter uniquement le retrieval, sans appeler le modèle de génération :
+
+```bash
+python rag_pdf.py retrieve "Quels sont les points importants du document ?" --top-k 5
+```
+
 Tu peux ajuster le nombre de passages gardés et le seuil de pertinence :
 
 ```bash
@@ -335,6 +353,9 @@ Commande recommandée :
 .venv311/bin/python -m unittest discover -s tests -v
 ```
 
+Ces tests tournent aussi automatiquement dans GitHub Actions à chaque push ou
+pull request.
+
 ## 9. Evaluation retrieval
 
 Un petit jeu d'évaluation vit dans :
@@ -385,7 +406,53 @@ Lecture des scores :
 - `duration_s` : temps de retrieval ;
 - `bge_active` : indique si BGE a réellement reranké.
 
-## 10. Web contrôlé
+## 10. Evaluation des réponses finales
+
+L'évaluation de réponse finale complète l'évaluation retrieval. Elle vérifie :
+
+- la présence de faits attendus ;
+- l'absence de termes interdits ou inventés ;
+- la présence de citations quand elles sont requises ;
+- la capacité à dire "je ne sais pas" quand la réponse n'est pas dans le corpus.
+
+Commande :
+
+```bash
+OPENAI_API_KEY="$(security find-generic-password -a "$USER" -s "OPENAI_API_KEY" -w)" \
+.venv311/bin/python scripts/evaluate_answers.py \
+  --output reports/answers-baseline.json
+```
+
+Cette évaluation reste volontairement simple. Elle sert de premier garde-fou,
+pas de juge absolu de qualité.
+
+## 11. Corpus exemple reproductible
+
+Un petit corpus non sensible est disponible dans :
+
+```text
+sample_corpus/
+```
+
+Il permet de tester le projet sans utiliser tes PDF privés :
+
+```bash
+export RAG_PDF_DIR="$PWD/sample_corpus/pdfs"
+export RAG_INDEX_DIR="$PWD/sample_corpus/index"
+export RAG_DOMAIN_PROFILE=generic
+
+.venv311/bin/python rag_pdf.py indexer
+.venv311/bin/python rag_pdf.py retrieve "Which Acme offer is best for a sales engineering demo?"
+```
+
+Les questions attendues sont dans :
+
+```text
+sample_corpus/evaluation/questions.json
+sample_corpus/evaluation/answers.json
+```
+
+## 12. Web contrôlé
 
 Le projet peut indexer des pages web, mais avec contrôle qualité.
 Il ne laisse pas le modèle naviguer librement sur Internet.
@@ -425,7 +492,7 @@ Pourquoi cette approche ?
 - le modèle répond depuis un contexte contrôlé, pas depuis une navigation libre ;
 - tu peux mélanger PDF locaux et pages web officielles dans le même FAISS.
 
-## 11. Organisation du code
+## 13. Organisation du code
 
 Le projet est en cours de simplification progressive.
 
@@ -468,7 +535,7 @@ Pour voir les controles de performance locaux :
 docs/performance.md
 ```
 
-## 12. Nouvelles briques RAG
+## 14. Nouvelles briques RAG
 
 ### Chunking intelligent par phrases
 

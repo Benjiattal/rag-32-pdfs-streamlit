@@ -1,0 +1,23 @@
+[
+  {
+    "id": "sample-platform-purpose",
+    "question": "What does the Acme platform do?",
+    "expected_facts": ["document search", "citations", "governance"],
+    "forbidden_terms": ["quantum", "blockchain"],
+    "must_have_citation": true
+  },
+  {
+    "id": "sample-support-levels",
+    "question": "List the support levels and response times.",
+    "expected_facts": ["Standard", "Premium", "Critical"],
+    "forbidden_terms": ["24/7 phone support for all tiers"],
+    "must_have_citation": true
+  },
+  {
+    "id": "sample-unknown-warranty",
+    "question": "What is the warranty period for the quantum module?",
+    "expected_unknown": true,
+    "forbidden_terms": ["one year", "two years", "three years"],
+    "must_have_citation": false
+  }
+]

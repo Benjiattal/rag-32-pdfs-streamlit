@@ -12,3 +12,5 @@ data/web/*
 !data/web/.gitkeep
 static/pdfs/*.pdf
 reports/*.json
+sample_corpus/index/*
+!sample_corpus/index/.gitkeep

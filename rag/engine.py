@@ -206,6 +206,70 @@ def afficher_sources(
         )
 
 
+def afficher_retrieval(
+    question: str,
+    top_k: int | None = None,
+    candidate_k: int | None = None,
+    min_score: float | None = None,
+    filtre: FiltreMetadata | None = None,
+    utiliser_query_rewrite_llm: bool | None = None,
+    utiliser_reranker_llm: bool | None = None,
+    utiliser_cross_encoder_reranker: bool | None = None,
+) -> None:
+    """
+    Affiche uniquement le retrieval : chunks, sources et scores.
+
+    Pourquoi cette commande existe ?
+    Dans un RAG, la réponse finale dépend d'abord des passages retrouvés. Cette
+    vue permet donc de diagnostiquer la qualité sans payer ni attendre l'appel au
+    modèle de génération.
+    """
+    top_k = top_k or int(os.getenv("TOP_K", str(DEFAULT_TOP_K)))
+    candidate_k = candidate_k or int(os.getenv("CANDIDATE_K", str(DEFAULT_CANDIDATE_K)))
+    min_score = min_score if min_score is not None else float(
+        os.getenv("MIN_SCORE", str(DEFAULT_MIN_SCORE))
+    )
+
+    resultats = rechercher(
+        question,
+        top_k=top_k,
+        candidate_k=candidate_k,
+        min_score=min_score,
+        filtre=filtre,
+        utiliser_query_rewrite_llm=utiliser_query_rewrite_llm,
+        utiliser_reranker_llm=utiliser_reranker_llm,
+        utiliser_cross_encoder_reranker=utiliser_cross_encoder_reranker,
+    )
+
+    print("\nRetrieval only")
+    print("==============")
+    print(f"Question    : {question}")
+    print(f"top_k       : {top_k}")
+    print(f"candidate_k : {candidate_k}")
+    print(f"min_score   : {min_score:.3f}")
+
+    if not resultats:
+        print("\nAucun chunk retrouve au-dessus du seuil.")
+        return
+
+    for numero, resultat in enumerate(resultats, start=1):
+        morceau = resultat.morceau
+        if getattr(morceau, "source_type", "pdf") == "web":
+            localisation = f"Web : {morceau.fichier} | {getattr(morceau, 'url', '')}"
+        else:
+            localisation = f"{morceau.fichier}, page {morceau.page}"
+
+        extrait = " ".join(morceau.texte.split())[:700]
+        print("\n" + "-" * 80)
+        print(f"[{numero}] {localisation}, chunk {getattr(morceau, 'numero', '?')}")
+        print(
+            f"score_final={resultat.score_final:.3f} | "
+            f"faiss={resultat.score_semantique:.3f} | "
+            f"lexical={resultat.score_lexical:.3f}"
+        )
+        print(extrait)
+
+
 # ==============================
 # --- 13. CLI ---
 # ==============================
@@ -322,6 +386,74 @@ def main() -> None:
         ),
     )
 
+    commande_retrieve = sous_commandes.add_parser(
+        "retrieve",
+        help="Afficher uniquement les chunks retrouves, sans appel au LLM final.",
+    )
+    commande_retrieve.add_argument("question", help="Question a poser au retrieval.")
+    commande_retrieve.add_argument(
+        "--top-k",
+        "--top_k",
+        dest="top_k",
+        type=int,
+        default=None,
+        help="Nombre de morceaux affiches apres reranking.",
+    )
+    commande_retrieve.add_argument(
+        "--candidate-k",
+        type=int,
+        default=None,
+        help="Nombre de candidats FAISS avant reranking.",
+    )
+    commande_retrieve.add_argument(
+        "--min-score",
+        "--min_score",
+        dest="min_score",
+        type=float,
+        default=None,
+        help="Seuil minimal de score final apres reranking.",
+    )
+    commande_retrieve.add_argument(
+        "--document",
+        action="append",
+        default=None,
+        help="Filtrer sur un nom de PDF. Option repetable.",
+    )
+    commande_retrieve.add_argument(
+        "--page-min",
+        type=int,
+        default=None,
+        help="Filtrer a partir de cette page.",
+    )
+    commande_retrieve.add_argument(
+        "--page-max",
+        type=int,
+        default=None,
+        help="Filtrer jusqu'a cette page.",
+    )
+    commande_retrieve.add_argument(
+        "--source-type",
+        choices=["pdf", "web"],
+        action="append",
+        default=None,
+        help="Limiter la recherche a un type de source. Option repetable.",
+    )
+    commande_retrieve.add_argument(
+        "--no-query-rewrite",
+        action="store_true",
+        help="Desactiver la reformulation LLM pour cette question.",
+    )
+    commande_retrieve.add_argument(
+        "--no-llm-reranker",
+        action="store_true",
+        help="Desactiver le reranking LLM pour cette question.",
+    )
+    commande_retrieve.add_argument(
+        "--cross-encoder-reranker",
+        action="store_true",
+        help="Activer le reranker local CrossEncoder.",
+    )
+
     arguments = parseur.parse_args()
 
     if arguments.commande == "indexer":
@@ -368,6 +500,24 @@ def main() -> None:
                 utiliser_reranker_llm=not arguments.no_llm_reranker,
                 utiliser_cross_encoder_reranker=arguments.cross_encoder_reranker,
             )
+
+    if arguments.commande == "retrieve":
+        filtre = FiltreMetadata(
+            fichiers=set(arguments.document) if arguments.document else None,
+            page_min=arguments.page_min,
+            page_max=arguments.page_max,
+            source_types=set(arguments.source_type) if arguments.source_type else None,
+        )
+        afficher_retrieval(
+            arguments.question,
+            top_k=arguments.top_k,
+            candidate_k=arguments.candidate_k,
+            min_score=arguments.min_score,
+            filtre=filtre,
+            utiliser_query_rewrite_llm=not arguments.no_query_rewrite,
+            utiliser_reranker_llm=not arguments.no_llm_reranker,
+            utiliser_cross_encoder_reranker=arguments.cross_encoder_reranker,
+        )
 
 
 if __name__ == "__main__":

@@ -1,0 +1,23 @@
+[
+  {
+    "id": "gsi-revenue-answer",
+    "question": "Quelles solutions Everpure peuvent generer des revenus pour un GSI ?",
+    "expected_facts": ["Evergreen", "FlashArray", "FlashBlade"],
+    "forbidden_terms": ["SAP HANA Cloud revenue guarantee"],
+    "must_have_citation": true
+  },
+  {
+    "id": "flashblade-family-answer",
+    "question": "Donne moi la liste des baies de stockage de la gamme FlashBlade avec leur descriptif.",
+    "expected_facts": ["FlashBlade//S", "FlashBlade//E", "FlashBlade//EXA"],
+    "forbidden_terms": ["FlashBlade//Quantum"],
+    "must_have_citation": true
+  },
+  {
+    "id": "unknown-answer",
+    "question": "Quelle est la couleur officielle du prototype interne non documente ?",
+    "expected_unknown": true,
+    "forbidden_terms": ["bleu", "rouge", "green", "blue", "red"],
+    "must_have_citation": false
+  }
+]

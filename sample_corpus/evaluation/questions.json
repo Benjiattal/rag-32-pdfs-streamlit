@@ -1,0 +1,20 @@
+[
+  {
+    "id": "sample-platform-purpose",
+    "question": "What does the Acme platform do?",
+    "expected_docs": ["acme-platform-overview.pdf"],
+    "expected_keywords": ["governance", "search", "citations"]
+  },
+  {
+    "id": "sample-se-demo-offer",
+    "question": "Which Acme offer is best for a sales engineering demo?",
+    "expected_docs": ["acme-product-portfolio.pdf"],
+    "expected_keywords": ["Acme Insight", "demo", "sales engineering"]
+  },
+  {
+    "id": "sample-support-levels",
+    "question": "List the support levels and response times.",
+    "expected_docs": ["acme-support-policy.pdf"],
+    "expected_keywords": ["Standard", "Premium", "Critical"]
+  }
+]

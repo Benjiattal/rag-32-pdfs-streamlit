@@ -1,0 +1,6 @@
+pymupdf==1.25.5
+numpy==2.2.5
+python-dotenv==1.1.0
+openai==1.76.0
+faiss-cpu==1.10.0
+beautifulsoup4==4.13.4
