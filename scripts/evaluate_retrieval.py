@@ -15,6 +15,7 @@ Usage :
     OPENAI_API_KEY="..." .venv311/bin/python scripts/evaluate_retrieval.py
     .venv311/bin/python scripts/evaluate_retrieval.py --bge
     .venv311/bin/python scripts/evaluate_retrieval.py --top-k 8 --candidate-k 120
+    .venv311/bin/python scripts/evaluate_retrieval.py --output reports/retrieval.json
 """
 
 from __future__ import annotations
@@ -37,7 +38,18 @@ import rag_pdf  # noqa: E402
 def charger_questions(chemin: Path) -> list[dict]:
     """Charge les cas de test depuis un JSON volontairement simple."""
     with chemin.open("r", encoding="utf-8") as fichier:
-        return json.load(fichier)
+        questions = json.load(fichier)
+
+    if not isinstance(questions, list):
+        raise ValueError("Le fichier d'evaluation doit contenir une liste de cas.")
+
+    for index, cas in enumerate(questions, start=1):
+        if not isinstance(cas, dict):
+            raise ValueError(f"Cas #{index}: chaque cas doit etre un objet JSON.")
+        if not cas.get("question"):
+            raise ValueError(f"Cas #{index}: le champ 'question' est obligatoire.")
+
+    return questions
 
 
 def evaluer_question(
@@ -113,7 +125,34 @@ def evaluer_question(
     }
 
 
-def afficher_tableau(resultats: list[dict]) -> None:
+def calculer_resume(resultats: list[dict]) -> dict:
+    """Calcule un resume agregé facile a lire ou a exporter."""
+    if not resultats:
+        return {
+            "questions": 0,
+            "mean_doc_recall": 0.0,
+            "mean_keyword_recall": 0.0,
+            "mean_duration_s": 0.0,
+        }
+
+    return {
+        "questions": len(resultats),
+        "mean_doc_recall": round(
+            sum(r["doc_recall"] for r in resultats) / len(resultats),
+            3,
+        ),
+        "mean_keyword_recall": round(
+            sum(r["keyword_recall"] for r in resultats) / len(resultats),
+            3,
+        ),
+        "mean_duration_s": round(
+            sum(r["duration_s"] for r in resultats) / len(resultats),
+            3,
+        ),
+    }
+
+
+def afficher_tableau(resultats: list[dict], resume: dict) -> None:
     """Affiche un resume lisible dans le terminal."""
     print("\nEvaluation retrieval")
     print("=" * 80)
@@ -128,12 +167,64 @@ def afficher_tableau(resultats: list[dict]) -> None:
         print("  docs hits:", ", ".join(resultat["docs_hits"]) or "-")
         print("  keywords:", ", ".join(resultat["keyword_hits"]) or "-")
 
-    if resultats:
-        moyenne_docs = sum(r["doc_recall"] for r in resultats) / len(resultats)
-        moyenne_keywords = sum(r["keyword_recall"] for r in resultats) / len(resultats)
-        print("-" * 80)
-        print(f"Moyenne docs recall    : {moyenne_docs:.2f}")
-        print(f"Moyenne keyword recall : {moyenne_keywords:.2f}")
+    print("-" * 80)
+    print(f"Questions              : {resume['questions']}")
+    print(f"Moyenne docs recall    : {resume['mean_doc_recall']:.2f}")
+    print(f"Moyenne keyword recall : {resume['mean_keyword_recall']:.2f}")
+    print(f"Temps moyen retrieval  : {resume['mean_duration_s']:.2f}s")
+
+
+def sauvegarder_rapport(chemin: Path, configuration: dict, resultats: list[dict], resume: dict) -> None:
+    """Sauvegarde un rapport JSON pour comparer deux runs plus tard."""
+    chemin.parent.mkdir(parents=True, exist_ok=True)
+    rapport = {
+        "configuration": configuration,
+        "summary": resume,
+        "results": resultats,
+    }
+    chemin.write_text(
+        json.dumps(rapport, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def verifier_seuils(
+    resume: dict,
+    fail_under_doc_recall: float | None,
+    fail_under_keyword_recall: float | None,
+) -> bool:
+    """
+    Retourne True si les seuils sont respectes.
+
+    Ces seuils sont optionnels. Ils deviennent utiles quand on veut utiliser le
+    benchmark comme garde-fou apres une refactorisation ou un changement de
+    chunking.
+    """
+    ok = True
+
+    if (
+        fail_under_doc_recall is not None
+        and resume["mean_doc_recall"] < fail_under_doc_recall
+    ):
+        print(
+            f"ECHEC: mean_doc_recall={resume['mean_doc_recall']:.2f} "
+            f"< seuil {fail_under_doc_recall:.2f}",
+            file=sys.stderr,
+        )
+        ok = False
+
+    if (
+        fail_under_keyword_recall is not None
+        and resume["mean_keyword_recall"] < fail_under_keyword_recall
+    ):
+        print(
+            f"ECHEC: mean_keyword_recall={resume['mean_keyword_recall']:.2f} "
+            f"< seuil {fail_under_keyword_recall:.2f}",
+            file=sys.stderr,
+        )
+        ok = False
+
+    return ok
 
 
 def main() -> None:
@@ -145,7 +236,34 @@ def main() -> None:
     parser.add_argument("--query-rewrite", action="store_true")
     parser.add_argument("--bge", action="store_true")
     parser.add_argument("--json", action="store_true", help="Sortie JSON detaillee.")
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Chemin optionnel pour sauvegarder le rapport JSON.",
+    )
+    parser.add_argument(
+        "--fail-under-doc-recall",
+        type=float,
+        default=None,
+        help="Retourne un code erreur si la moyenne doc_recall est sous ce seuil.",
+    )
+    parser.add_argument(
+        "--fail-under-keyword-recall",
+        type=float,
+        default=None,
+        help="Retourne un code erreur si la moyenne keyword_recall est sous ce seuil.",
+    )
     args = parser.parse_args()
+
+    configuration = {
+        "file": str(args.file),
+        "top_k": args.top_k,
+        "candidate_k": args.candidate_k,
+        "min_score": args.min_score,
+        "query_rewrite": args.query_rewrite,
+        "bge": args.bge,
+    }
 
     questions = charger_questions(args.file)
     resultats = []
@@ -167,10 +285,38 @@ def main() -> None:
             flush=True,
         )
 
+    resume = calculer_resume(resultats)
+
     if args.json:
-        print(json.dumps(resultats, ensure_ascii=False, indent=2))
+        print(
+            json.dumps(
+                {
+                    "configuration": configuration,
+                    "summary": resume,
+                    "results": resultats,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
     else:
-        afficher_tableau(resultats)
+        afficher_tableau(resultats, resume)
+
+    if args.output:
+        chemin_sortie = args.output
+        if not chemin_sortie.is_absolute():
+            chemin_sortie = BASE_DIR / chemin_sortie
+        sauvegarder_rapport(chemin_sortie, configuration, resultats, resume)
+        print(f"\nRapport JSON sauvegarde : {chemin_sortie}")
+
+    seuils_ok = verifier_seuils(
+        resume,
+        fail_under_doc_recall=args.fail_under_doc_recall,
+        fail_under_keyword_recall=args.fail_under_keyword_recall,
+    )
+
+    if not seuils_ok:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

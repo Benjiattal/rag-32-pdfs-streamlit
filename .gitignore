@@ -11,3 +11,4 @@ data/pdfs/*.pdf
 data/web/*
 !data/web/.gitkeep
 static/pdfs/*.pdf
+reports/*.json

@@ -353,12 +353,29 @@ OPENAI_API_KEY="$(security find-generic-password -a "$USER" -s "OPENAI_API_KEY" 
 .venv311/bin/python scripts/evaluate_retrieval.py
 ```
 
+Sauvegarder un rapport JSON comparable dans le temps :
+
+```bash
+OPENAI_API_KEY="$(security find-generic-password -a "$USER" -s "OPENAI_API_KEY" -w)" \
+.venv311/bin/python scripts/evaluate_retrieval.py \
+  --output reports/retrieval-baseline.json
+```
+
 Comparer avec BGE :
 
 ```bash
 OPENAI_API_KEY="$(security find-generic-password -a "$USER" -s "OPENAI_API_KEY" -w)" \
 KMP_DUPLICATE_LIB_OK=TRUE \
 .venv311/bin/python scripts/evaluate_retrieval.py --bge
+```
+
+Utiliser l'évaluation comme garde-fou après une refactorisation :
+
+```bash
+OPENAI_API_KEY="$(security find-generic-password -a "$USER" -s "OPENAI_API_KEY" -w)" \
+.venv311/bin/python scripts/evaluate_retrieval.py \
+  --fail-under-doc-recall 0.70 \
+  --fail-under-keyword-recall 0.70
 ```
 
 Lecture des scores :
@@ -368,7 +385,7 @@ Lecture des scores :
 - `duration_s` : temps de retrieval ;
 - `bge_active` : indique si BGE a réellement reranké.
 
-## 9. Web contrôlé
+## 10. Web contrôlé
 
 Le projet peut indexer des pages web, mais avec contrôle qualité.
 Il ne laisse pas le modèle naviguer librement sur Internet.
@@ -408,7 +425,7 @@ Pourquoi cette approche ?
 - le modèle répond depuis un contexte contrôlé, pas depuis une navigation libre ;
 - tu peux mélanger PDF locaux et pages web officielles dans le même FAISS.
 
-## 10. Organisation du code
+## 11. Organisation du code
 
 Le projet est en cours de simplification progressive.
 
@@ -451,7 +468,7 @@ Pour voir les controles de performance locaux :
 docs/performance.md
 ```
 
-## 11. Nouvelles briques RAG
+## 12. Nouvelles briques RAG
 
 ### Chunking intelligent par phrases
 
