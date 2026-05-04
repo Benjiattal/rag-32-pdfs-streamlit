@@ -26,7 +26,7 @@ large. La strategie retenue est donc progressive :
 | Retrieval lexical / BM25 / expansion / multi-requetes / fusion candidats / filtres simples | `rag/retrieval.py` | Fonctions locales extraites |
 | Profils metier optionnels | `rag/profiles.py`, `rag/domain_profiles/`, `rag/everpure.py` | Extrait |
 | Retrieval orchestration | `rag/engine.py` | Reste orchestrateur |
-| Reranking LLM / BGE | `rag/reranking.py` | Facade a extraire |
+| Reranking LLM / BGE | `rag/reranking.py` | Extrait |
 | Prompt et contexte long | `rag/prompting.py` | Extrait |
 
 ## Pourquoi ne pas tout extraire d'un coup ?
@@ -36,10 +36,10 @@ prompt, generation. Ces etapes se passent des objets entre elles. Une extraction
 trop rapide peut creer des imports circulaires ou changer subtilement le
 comportement.
 
-Exemple : les aides propres au profil Everpure et le prompt final ont ete sortis
-du moteur principal. Le prochain risque concerne surtout le reranking BGE/LLM :
-il melange cache, worker local et appels optionnels, donc l'extraction doit
-rester prudente.
+Exemple : les aides propres au profil Everpure, le prompt final et le reranking
+BGE/LLM ont ete sortis du moteur principal. Le prochain risque concerne surtout
+la reformulation LLM de requete, car elle melange cache, profil actif et appel
+reseau optionnel.
 
 ## Regles de verification
 
@@ -69,15 +69,15 @@ depuis l'interface ou la CLI.
 
 ## Prochaine extraction recommandee
 
-La prochaine extraction logique est `rag/reranking.py`.
+La prochaine extraction logique est `rag/query_rewrite.py`.
 
 Elle devrait contenir :
 
-- le cache du reranker LLM ;
-- le prompt strict JSON du reranker LLM ;
-- le chargement du CrossEncoder/BGE ;
-- le worker BGE externe ;
-- la fonction de reranking commune.
+- le cache de reformulation ;
+- la cle de cache qui inclut le profil actif ;
+- le prompt de reformulation ;
+- l'appel OpenAI optionnel ;
+- les statistiques du cache query rewrite.
 
 La fonction `rechercher()` peut rester dans `rag/engine.py` tant que
 l'orchestration globale n'est pas stabilisee. C'est un choix volontaire : mieux

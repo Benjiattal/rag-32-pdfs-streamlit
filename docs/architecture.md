@@ -133,7 +133,7 @@ des chunks retrouves. La qualite depend donc d'abord du retrieval :
   principales.
 - `rag/domain_profiles/` contient les synonymes et consignes metier activables.
 - `rag/engine.py` reste l'orchestrateur historique. Les prochaines extractions
-  doivent continuer par petits blocs : reranking, puis orchestration fine.
+  doivent continuer par petits blocs : query rewrite, puis orchestration fine.
 - FAISS local pour garder un POC simple, rapide et sans service externe.
 - BM25 en complement de FAISS pour mieux capter les noms produits et acronymes.
 - BGE optionnel : utile pour departager des chunks proches, mais pas toujours

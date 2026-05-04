@@ -408,11 +408,13 @@ Les briques deja sorties du moteur principal :
 - `rag/retrieval.py` : normalisation lexicale, tokenisation, score BM25,
   expansion deterministe de requete, construction multi-requetes et fusion des
   candidats FAISS, diversification documentaire et filtres techniques simples.
+- `rag/reranking.py` : score hybride FAISS + BM25, reranker LLM, worker BGE et
+  cache de reranking.
 - `rag/prompting.py` : contexte long, prompt final, consignes de citation et
   injection du profil actif.
 
 `rag/engine.py` reste l'orchestrateur historique du pipeline. La prochaine
-extraction recommandee est l'orchestration du reranking, en gardant des petites
+extraction recommandee est la reformulation de requete, en gardant des petites
 etapes testables.
 
 Pour suivre la strategie de simplification :
