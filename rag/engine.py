@@ -123,6 +123,16 @@ from rag.retrieval import (
     contient_valeurs_techniques,
     filtrer_resultats_pour_valeurs_techniques as filtrer_resultats_pour_valeurs_techniques_local,
 )
+from rag.profiles import (
+    lister_profils_disponibles,
+    profil_domaine_actif,
+    profil_est_actif,
+)
+from rag.everpure import (
+    construire_aides_prompt as construire_aides_prompt_everpure,
+    prioriser_inventaires_produits as prioriser_inventaires_produits_everpure,
+    question_demande_inventaire_produit as question_demande_inventaire_produit_everpure,
+)
 
 
 
@@ -185,7 +195,8 @@ def cle_cache_query_rewrite(question: str, modele: str) -> str:
     Comme pour les embeddings, on inclut le modèle dans la clé : deux modèles
     peuvent produire des reformulations différentes.
     """
-    contenu = f"{QUERY_REWRITE_PROMPT_VERSION}\0{modele}\0{question}".encode("utf-8")
+    profil = profil_domaine_actif()
+    contenu = f"{QUERY_REWRITE_PROMPT_VERSION}\0{profil.name}\0{modele}\0{question}".encode("utf-8")
     return hashlib.sha256(contenu).hexdigest()
 
 
@@ -244,8 +255,13 @@ def reecrire_question_avec_llm(question: str) -> str:
     if cle_cache in cache:
         return cache[cle_cache]
 
+    profil = profil_domaine_actif()
+    contraintes_profil = profil.query_rewrite_extra_text()
+    if contraintes_profil:
+        contraintes_profil = "\n" + contraintes_profil
+
     prompt = f"""
-Tu aides un moteur de recherche RAG sur des documents Everpure/Pure Storage.
+{profil.query_rewrite_context}
 
 Tache :
 Reformule la question utilisateur pour la recherche documentaire uniquement.
@@ -257,10 +273,8 @@ Contraintes :
 - Ajoute des synonymes utiles en français et en anglais.
 - Ajoute les noms produits probables seulement s'ils sont déjà implicites dans la question.
 - N'ajoute pas de concepts trop larges comme alternatives, concurrents, marché, stratégie ou généralités.
-- Si l'utilisateur dit "serveurs FlashArray", comprends "baies / modèles / appliances FlashArray / storage arrays".
-- Privilégie les termes techniques exacts susceptibles d'apparaître dans des datasheets.
 - Réponse en une seule ligne.
-- Maximum 45 mots.
+- Maximum 45 mots.{contraintes_profil}
 
 Question utilisateur :
 {question}
@@ -861,196 +875,6 @@ def reranker_resultats(
     return sorted(resultats, key=lambda resultat: resultat.score_final, reverse=True)
 
 
-def nombre_modeles_flasharray(texte: str) -> int:
-    """
-    Compte combien de modèles FlashArray distincts apparaissent dans un chunk.
-
-    Pour une question de type "liste tous les modèles", un chunk qui contient
-    plusieurs modèles dans un tableau est souvent plus utile qu'un chunk narratif
-    qui ne parle que d'un seul produit.
-    """
-    texte_minuscule = texte.lower()
-    modeles = [
-        "flasharray//st",
-        "flasharray//xl",
-        "flasharray//x",
-        "flasharray//c",
-        "flasharray//e",
-        "//xl190",
-        "//xl170",
-        "//xl130",
-        "xl190 r5",
-        "xl170 r5",
-        "xl130 r5",
-        "x10",
-        "x20",
-        "x50",
-        "x70",
-        "x90",
-        "c20",
-        "c40",
-        "c60",
-        "c70",
-        "c90",
-    ]
-    return sum(1 for modele in modeles if modele in texte_minuscule)
-
-
-def prioriser_inventaire_flasharray(
-    question: str,
-    resultats: list[ResultatRecherche],
-) -> list[ResultatRecherche]:
-    """
-    Reclasse les résultats pour les questions "liste/gamme FlashArray".
-
-    Principe qualité :
-    le score FAISS + BM25 reste la base, mais on ajoute un petit bonus aux chunks
-    qui ressemblent à un tableau de modèles. Cela évite qu'un document SQL Server
-    soit préféré seulement parce que la question contient le mot "serveur".
-    """
-    if not question_demande_inventaire_flasharray(question):
-        return resultats
-
-    resultats_ajustes: list[ResultatRecherche] = []
-
-    for resultat in resultats:
-        texte = resultat.morceau.texte
-        fichier = resultat.morceau.fichier.lower()
-        texte_minuscule = texte.lower()
-        bonus = 0.0
-
-        nb_modeles = nombre_modeles_flasharray(texte)
-        if nb_modeles >= 4:
-            bonus += 0.35
-        elif nb_modeles >= 2:
-            bonus += 0.18
-
-        if "flasharray-family" in fichier:
-            bonus += 0.20
-
-        if "flasharray models" in texte_minuscule or "model optimized for" in texte_minuscule:
-            bonus += 0.25
-
-        # Les documents SQL Server restent utilisables, mais ils ne doivent pas
-        # dominer une question qui demande la gamme FlashArray.
-        if "sql-server" in fichier:
-            bonus -= 0.12
-
-        resultats_ajustes.append(
-            ResultatRecherche(
-                morceau=resultat.morceau,
-                score_semantique=resultat.score_semantique,
-                score_lexical=resultat.score_lexical,
-                score_final=resultat.score_final + bonus,
-            )
-        )
-
-    return sorted(resultats_ajustes, key=lambda resultat: resultat.score_final, reverse=True)
-
-
-def question_demande_inventaire_flashblade(question: str) -> bool:
-    """
-    Detecte les questions qui demandent la liste de la gamme FlashBlade.
-
-    Le but est d'éviter une réponse limitée à FlashBlade//S ou //E quand le
-    corpus contient aussi FlashBlade//EXA.
-    """
-    question_minuscule = question.lower()
-
-    if "flashblade" not in question_minuscule:
-        return False
-
-    mots_inventaire = [
-        "liste",
-        "lister",
-        "tous",
-        "toutes",
-        "baie",
-        "baies",
-        "gamme",
-        "famille",
-        "modele",
-        "modeles",
-        "modèle",
-        "modèles",
-        "descriptif",
-        "description",
-        "stockage",
-    ]
-
-    return any(mot in question_minuscule for mot in mots_inventaire)
-
-
-def nombre_modeles_flashblade(texte: str) -> int:
-    """Compte les familles FlashBlade distinctes visibles dans un chunk."""
-    texte_minuscule = texte.lower()
-    modeles = [
-        "flashblade//s",
-        "flashblade//s500",
-        "flashblade//e",
-        "flashblade//exa",
-        "flashblade exa",
-    ]
-    return sum(1 for modele in modeles if modele in texte_minuscule)
-
-
-def prioriser_inventaire_flashblade(
-    question: str,
-    resultats: list[ResultatRecherche],
-) -> list[ResultatRecherche]:
-    """
-    Reclasse les résultats pour les questions "liste/gamme FlashBlade".
-
-    Principe :
-    - on favorise les chunks qui mentionnent explicitement une famille FlashBlade ;
-    - on donne un bonus supplémentaire à FlashBlade//EXA, car il est souvent dans
-      un technical brief ou un blog et se fait masquer par les documents S500 ;
-    - on réduit légèrement le poids des reference designs NVIDIA quand ils
-      parlent surtout d'une configuration et pas de la gamme produit.
-    """
-    if not question_demande_inventaire_flashblade(question):
-        return resultats
-
-    resultats_ajustes: list[ResultatRecherche] = []
-
-    for resultat in resultats:
-        texte = resultat.morceau.texte
-        texte_minuscule = texte.lower()
-        fichier = resultat.morceau.fichier.lower()
-        bonus = 0.0
-
-        nb_modeles = nombre_modeles_flashblade(texte)
-        if nb_modeles >= 3:
-            bonus += 0.35
-        elif nb_modeles >= 2:
-            bonus += 0.22
-        elif nb_modeles == 1:
-            bonus += 0.10
-
-        if "flashblade-exa" in fichier or "flashblade//exa" in texte_minuscule or "flashblade exa" in texte_minuscule:
-            bonus += 0.42
-
-        if "flashblade-e" in fichier or "flashblade//e" in texte_minuscule:
-            bonus += 0.22
-
-        if "flashblade-s" in fichier or "flashblade//s" in texte_minuscule:
-            bonus += 0.18
-
-        if "dgx" in fichier or "superpod" in fichier or "reference-design" in fichier:
-            bonus -= 0.10
-
-        resultats_ajustes.append(
-            ResultatRecherche(
-                morceau=resultat.morceau,
-                score_semantique=resultat.score_semantique,
-                score_lexical=resultat.score_lexical,
-                score_final=resultat.score_final + bonus,
-            )
-        )
-
-    return sorted(resultats_ajustes, key=lambda resultat: resultat.score_final, reverse=True)
-
-
 def question_demande_valeurs_techniques(question: str) -> bool:
     """Detecte les questions qui demandent des chiffres/specifications."""
     question_minuscule = question.lower()
@@ -1089,8 +913,7 @@ def question_demande_portefeuille_capacites(question: str) -> bool:
     Detecte les questions larges qui demandent des capacites sur un portefeuille.
 
     Dans ce cas, on veut eviter que les 8 meilleurs chunks viennent tous du meme
-    document. On prefere une vue plus diversifiee : FlashArray, FlashBlade,
-    Cloud Dedicated, etc.
+    document. On prefere une vue plus diversifiee entre plusieurs sources.
     """
     question_minuscule = question.lower()
     mots_portefeuille = ["toutes", "tous", "portfolio", "portefeuille", "solutions"]
@@ -1112,45 +935,6 @@ def question_demande_portefeuille_capacites(question: str) -> bool:
     )
 
 
-def question_demande_inventaire_flasharray(question: str) -> bool:
-    """
-    Detecte les questions qui demandent la liste/gamme des modèles FlashArray.
-
-    Exemple utilisateur : "liste de tous les serveurs flasharray".
-
-    Remarque importante :
-    dans le vocabulaire Pure/Everpure, on parle plutôt de "baies", "arrays" ou
-    "modèles" FlashArray, pas vraiment de serveurs. Mais beaucoup d'utilisateurs
-    emploient "serveur" comme terme générique pour désigner une appliance.
-    Cette fonction traduit donc cette intention vers "liste des modèles".
-    """
-    question_minuscule = question.lower()
-
-    if "flasharray" not in question_minuscule:
-        return False
-
-    mots_inventaire = [
-        "liste",
-        "lister",
-        "tous",
-        "toutes",
-        "serveur",
-        "serveurs",
-        "server",
-        "servers",
-        "modele",
-        "modeles",
-        "modèle",
-        "modèles",
-        "gamme",
-        "famille",
-        "portfolio",
-        "portefeuille",
-    ]
-
-    return any(mot in question_minuscule for mot in mots_inventaire)
-
-
 def calculer_parametres_recherche_adaptatifs(
     question: str,
     top_k: int,
@@ -1166,8 +950,7 @@ def calculer_parametres_recherche_adaptatifs(
     - min_score = seuil minimal après reranking.
 
     Pourquoi adapter ?
-    Une question très ciblée ("combien de watts pour FlashArray XL ?") n'a pas le
-    même besoin qu'une question large ("liste toutes les solutions Everpure").
+    Une question très ciblée n'a pas le même besoin qu'une question large.
     Si top_k est trop petit sur une question large, le modèle n'a tout simplement
     pas assez de contexte. S'il est trop grand sur une question simple, on ajoute
     du bruit.
@@ -1179,17 +962,13 @@ def calculer_parametres_recherche_adaptatifs(
     candidate_k_effectif = max(candidate_k, top_k)
     min_score_effectif = min_score
 
-    if question_demande_inventaire_flasharray(question):
+    if profil_est_actif("everpure") and question_demande_inventaire_produit_everpure(
+        question
+    ):
         top_k_effectif = max(top_k_effectif, 12)
         candidate_k_effectif = max(candidate_k_effectif, 180)
         min_score_effectif = min(min_score_effectif, 0.0)
-        raisons.append("inventaire FlashArray : recherche élargie vers les tableaux de modèles")
-
-    elif question_demande_inventaire_flashblade(question):
-        top_k_effectif = max(top_k_effectif, 12)
-        candidate_k_effectif = max(candidate_k_effectif, 180)
-        min_score_effectif = min(min_score_effectif, 0.0)
-        raisons.append("inventaire FlashBlade : recherche élargie vers S, E et EXA")
+        raisons.append("profil everpure : recherche elargie pour inventaire produit")
 
     elif question_demande_portefeuille_capacites(question):
         top_k_effectif = max(top_k_effectif, 12)
@@ -1338,8 +1117,12 @@ def rechercher(
         resultat for resultat in tous_les_resultats_rerankes if resultat.score_final >= min_score
     ]
     resultats_rerankes = filtrer_resultats_pour_valeurs_techniques(question, resultats_rerankes)
-    resultats_rerankes = prioriser_inventaire_flasharray(question, resultats_rerankes)
-    resultats_rerankes = prioriser_inventaire_flashblade(question, resultats_rerankes)
+
+    if profil_est_actif("everpure"):
+        resultats_rerankes = prioriser_inventaires_produits_everpure(
+            question,
+            resultats_rerankes,
+        )
 
     if utiliser_cross_encoder_reranker is None:
         utiliser_cross_encoder_reranker = variable_env_booleenne(
@@ -1447,138 +1230,6 @@ def construire_contexte_long(
     return "\n\n".join(morceaux_contexte)
 
 
-def extraire_modeles_flasharray_detectes(
-    resultats: list[ResultatRecherche],
-) -> dict[str, list[int]]:
-    """
-    Extrait les modèles FlashArray explicitement visibles dans les chunks.
-
-    Pourquoi ajouter cette étape ?
-    Un LLM peut parfois résumer une famille produit et oublier des déclinaisons
-    présentes dans le contexte. Pour une question "liste tous les modèles", on
-    préfère l'aider avec une extraction simple et traçable.
-
-    La valeur du dictionnaire contient les numéros de sources où le modèle a été
-    vu. Ces numéros correspondent aux "Source N" du contexte.
-    """
-    patrons = {
-        "FlashArray//ST": r"FlashArray//ST|//ST R5",
-        "FlashArray//XL R5": r"FlashArray//XL R5|FlashArray//XL™|FlashArray//XL",
-        "FlashArray//XL190 R5": r"FlashArray//XL190 R5|//XL190 R5|XL190 R5",
-        "FlashArray//XL170 R5": r"FlashArray//XL170 R5|//XL170 R5|XL170 R5",
-        "FlashArray//XL130 R5": r"FlashArray//XL130 R5|//XL130 R5|XL130 R5",
-        "FlashArray//X R5": r"FlashArray//X R5|FlashArray//X™|FlashArray//X(?!L)",
-        "FlashArray//C R5": r"FlashArray//C R5|FlashArray//C™|FlashArray//C",
-        "FlashArray//E": r"FlashArray//E™|FlashArray//E",
-        "FlashArray//X10": r"FlashArray//X10|//X10|X10",
-        "FlashArray//X20": r"FlashArray//X20|//X20|X20",
-        "FlashArray//X50": r"FlashArray//X50|//X50|X50",
-        "FlashArray//X70": r"FlashArray//X70|//X70|X70",
-        "FlashArray//X90": r"FlashArray//X90|//X90|X90",
-        "FlashArray//C20": r"FlashArray//C20|//C20|C20",
-        "FlashArray//C40": r"FlashArray//C40|//C40|C40",
-        "FlashArray//C60": r"FlashArray//C60|//C60|C60",
-        "FlashArray//C70": r"FlashArray//C70|//C70|C70",
-        "FlashArray//C90": r"FlashArray//C90|//C90|C90",
-    }
-    modeles: dict[str, list[int]] = {}
-
-    for numero_source, resultat in enumerate(resultats, start=1):
-        texte = resultat.morceau.texte
-
-        for modele, patron in patrons.items():
-            if re.search(patron, texte, flags=re.IGNORECASE):
-                modeles.setdefault(modele, []).append(numero_source)
-
-    return modeles
-
-
-def construire_aide_inventaire_flasharray(
-    question: str,
-    resultats: list[ResultatRecherche],
-) -> str:
-    """
-    Produit une aide compacte pour les questions de liste FlashArray.
-
-    Cette aide ne remplace pas le contexte : elle résume seulement les modèles
-    détectés automatiquement dans les chunks déjà récupérés.
-    """
-    if not question_demande_inventaire_flasharray(question):
-        return ""
-
-    modeles = extraire_modeles_flasharray_detectes(resultats)
-
-    if not modeles:
-        return ""
-
-    lignes = [
-        "Aide d'extraction pour la question FlashArray :",
-        "Les modèles suivants apparaissent explicitement dans les sources récupérées.",
-        "Utilise cette liste pour éviter d'oublier une famille ou une déclinaison.",
-    ]
-
-    for modele, sources in modeles.items():
-        sources_uniques = sorted(set(sources))
-        refs = ", ".join(f"[{source}]" for source in sources_uniques[:4])
-        lignes.append(f"- {modele} : {refs}")
-
-    return "\n".join(lignes)
-
-
-def extraire_modeles_flashblade_detectes(
-    resultats: list[ResultatRecherche],
-) -> dict[str, list[int]]:
-    """
-    Extrait les familles FlashBlade visibles dans les chunks récupérés.
-
-    Cette extraction sert de checklist pour éviter que le modèle oublie EXA
-    quand les sources récupérées contiennent surtout des documents S500.
-    """
-    patrons = {
-        "FlashBlade//S": r"FlashBlade//S(?!500)|FlashBlade//S™",
-        "FlashBlade//S500": r"FlashBlade//S500|S500",
-        "FlashBlade//E": r"FlashBlade//E|FlashBlade//E™",
-        "FlashBlade//EXA": r"FlashBlade//EXA|FlashBlade EXA|EXA",
-    }
-    modeles: dict[str, list[int]] = {}
-
-    for numero_source, resultat in enumerate(resultats, start=1):
-        texte = resultat.morceau.texte
-
-        for modele, patron in patrons.items():
-            if re.search(patron, texte, flags=re.IGNORECASE):
-                modeles.setdefault(modele, []).append(numero_source)
-
-    return modeles
-
-
-def construire_aide_inventaire_flashblade(
-    question: str,
-    resultats: list[ResultatRecherche],
-) -> str:
-    """Construit une aide compacte pour les questions de gamme FlashBlade."""
-    if not question_demande_inventaire_flashblade(question):
-        return ""
-
-    modeles = extraire_modeles_flashblade_detectes(resultats)
-
-    if not modeles:
-        return ""
-
-    lignes = [
-        "Aide d'extraction pour la question FlashBlade :",
-        "Les familles suivantes apparaissent explicitement dans les sources récupérées.",
-        "Utilise cette liste comme checklist, notamment pour ne pas oublier FlashBlade//EXA.",
-    ]
-
-    for modele, sources in modeles.items():
-        sources_uniques = sorted(set(sources))
-        refs = ", ".join(f"[{source}]" for source in sources_uniques[:4])
-        lignes.append(f"- {modele} : {refs}")
-
-    return "\n".join(lignes)
-
-
 def construire_prompt(
     question: str,
     resultats: list[ResultatRecherche],
@@ -1592,8 +1243,15 @@ def construire_prompt(
     if not contexte:
         contexte = "Aucun extrait suffisamment pertinent n'a ete retrouve."
 
-    aide_inventaire_flasharray = construire_aide_inventaire_flasharray(question, resultats)
-    aide_inventaire_flashblade = construire_aide_inventaire_flashblade(question, resultats)
+    profil = profil_domaine_actif()
+    aides_profil = ""
+
+    if profil.name == "everpure":
+        aides_profil = construire_aides_prompt_everpure(question, resultats)
+
+    consignes_profil = profil.prompt_extra_text()
+    if consignes_profil:
+        consignes_profil = "\n" + consignes_profil + "\n"
 
     prompt = f"""
 Tu es un assistant RAG.
@@ -1606,21 +1264,7 @@ Regles :
 - N'invente pas d'information absente du contexte.
 - Ne complete pas avec tes connaissances generales.
 - N'utilise pas les documents comme simple inspiration : chaque affirmation importante doit venir du contexte.
-- Si la question demande une synthese pour un role metier comme GSI, integrateur, partenaire, revendeur ou client final, ne cherche pas obligatoirement le mot exact dans le contexte.
-- Pour ce type de synthese metier, deduis les implications a partir des elements presents : programme partenaires, go-to-market, joint solutions, SLA, absence de migration, absence de downtime, automatisation, reduction du risque, garanties, consommation flexible.
-- Ne reponds pas "Je ne sais pas" si le contexte contient des benefices exploitables mais pas le mot exact du role demande.
-- Dans ce cas, indique clairement que l'analyse est une interpretation a partir des sources, pas une citation explicite du role.
-- Pour une question de type "quelles solutions", structure la reponse par solution ou capacite : solution, avantage, interet pour un GSI, source.
 - Pour une question demandant une liste de valeurs techniques, reponds sous forme de tableau avec les colonnes pertinentes et cite la source.
-- Pour une question qui demande la liste des modeles, serveurs, baies, arrays, gammes ou familles FlashArray, commence par expliquer que "serveur" est compris ici comme "baie/modele FlashArray" si necessaire.
-- Pour cette liste FlashArray, distingue les familles de produits (par exemple FlashArray//ST, //XL, //X, //C, //E) et les declinaisons explicites presentes dans le contexte (par exemple //XL190 R5, //XL170 R5, //XL130 R5).
-- Si le contexte contient un tableau "FlashArray Models" ou "Model / Optimized For", utilise-le comme source principale pour la liste.
-- Si une aide d'extraction FlashArray est fournie, utilise-la comme checklist pour ne pas oublier les modeles detectes dans le contexte.
-- Pour une liste FlashArray, reponds en tableau avec une ligne par modele ou declinaison detectee, et une colonne Source. Ne mets pas seulement une liste de sources globale a la fin.
-- Pour une question qui demande la liste des baies ou de la gamme FlashBlade, distingue FlashBlade//S, FlashBlade//E et FlashBlade//EXA si ces familles sont presentes dans le contexte.
-- Pour FlashBlade//EXA, indique clairement qu'il s'agit d'une architecture orientee AI/HPC/neocloud avec metadata cluster et data nodes, si ces elements sont presents.
-- Pour une liste FlashBlade, n'utilise pas de grand tableau Markdown. Utilise plutot une liste compacte avec un bloc par baie/famille, car les descriptifs sont trop longs pour un tableau lisible.
-- Dans chaque bloc FlashBlade, garde le format : **Nom** [N] — descriptif court ; usage principal ; precision disponible.
 - Cite les sources avec des numeros entre crochets, par exemple [1] ou [2], en utilisant les numeros "Source N" du contexte.
 - Ne recopie pas le nom complet du fichier dans la reponse si une citation [N] suffit.
 - Si le contexte contient des chiffres exacts, recopie-les exactement sans les arrondir.
@@ -1636,33 +1280,14 @@ Regles :
 - Quand plusieurs documents sont utiles, raisonne document par document puis fais une synthese.
 - Si les documents se completent ou se contredisent, signale-le clairement.
 
-Format prefere pour les questions de synthese business :
-1. Synthese executive en 2-3 phrases.
-2. Liste ou tableau des solutions/capacites avec :
-   - ce que c'est ;
-   - avantage client ;
-   - interet pour un GSI ;
-   - source au format [N].
-3. Recommandation finale courte.
-
 Format prefere pour les questions techniques avec chiffres :
 | Element | Valeur | Precision | Source |
 | ... | ... | ... | ... |
-
-Format prefere pour les questions de liste FlashArray :
-| Modele | Niveau | Optimise pour / role | Capacite ou precision disponible | Source |
-| ... | Famille ou declinaison | ... | ... | [N] |
-
-Format prefere pour les questions de liste FlashBlade :
-- **FlashBlade//S** [N] — Descriptif : ... Usage : ... Precision : ...
-- **FlashBlade//E** [N] — Descriptif : ... Usage : ... Precision : ...
-- **FlashBlade//EXA** [N] — Descriptif : ... Usage : ... Precision : ...
-
+{consignes_profil}
 Question :
 {question}
 
-{aide_inventaire_flasharray}
-{aide_inventaire_flashblade}
+{aides_profil}
 
 Contexte :
 {contexte}

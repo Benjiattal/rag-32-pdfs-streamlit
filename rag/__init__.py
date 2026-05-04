@@ -1,5 +1,5 @@
 """
-Package principal du RAG Everpure.
+Package principal du RAG documentaire.
 
 Ce fichier reste volontairement leger.
 

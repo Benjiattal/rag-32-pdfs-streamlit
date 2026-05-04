@@ -90,6 +90,7 @@ Le projet utilise :
 OPENAI_MODEL=gpt-4.1-nano
 OPENAI_TEMPERATURE=0
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+RAG_DOMAIN_PROFILE=generic
 TOP_K=8
 MIN_SCORE=0.10
 CANDIDATE_K=80
@@ -102,6 +103,30 @@ CHUNK_OVERLAP_SENTENCES=2
 L'interface permet aussi de comparer `gpt-5.4-nano` et `gpt-5.4-mini`.
 `OPENAI_TEMPERATURE=0` rend les réponses plus stables.
 `text-embedding-3-small` transforme les textes en vecteurs pour la recherche.
+`RAG_DOMAIN_PROFILE=generic` garde le moteur neutre. Pour réactiver les
+optimisations Everpure/Pure Storage, utilise `RAG_DOMAIN_PROFILE=everpure`.
+
+### Profils de domaine optionnels
+
+Le RAG est générique par défaut. Les synonymes, reformulations et consignes
+propres à un métier ne sont pas codés dans le moteur principal : ils sont placés
+dans des profils JSON sous `rag/domain_profiles/`.
+
+Principe :
+
+- `generic` : aucune hypothèse sur le contenu des PDF ;
+- `everpure` : profil de démonstration avec synonymes et consignes Pure
+  Storage/Everpure ;
+- pour un autre corpus, crée un fichier `rag/domain_profiles/mon-domaine.json`
+  puis lance avec `RAG_DOMAIN_PROFILE=mon-domaine`.
+
+Un profil peut définir :
+
+- des `expansion_rules` pour ajouter des synonymes de recherche ;
+- des `query_rewrite_extra_constraints` pour guider la reformulation LLM ;
+- des `prompt_extra_rules` pour guider la réponse finale ;
+- des `technical_focus_rules` pour privilégier certains fichiers quand une
+  question technique très précise les mentionne.
 
 `TOP_K` est le nombre de morceaux gardés après reranking. Pour une synthèse multi-documents, `8` est souvent plus adapté que `3`.
 `MIN_SCORE` filtre les passages trop faibles après reranking. Si le RAG répond trop souvent "Je ne sais pas", baisse cette valeur, par exemple `0.05` ou `0`.
@@ -332,6 +357,8 @@ Les briques deja sorties du moteur principal :
 - `rag/chunking.py` : decoupage par sections et phrases.
 - `rag/env.py` : chargement local du fichier `.env` ;
 - `rag/ingestion.py` : lecture PDF/Web, indexation FAISS et chargement d'index.
+- `rag/profiles.py` : chargement des profils de domaine optionnels ;
+- `rag/domain_profiles/` : synonymes et consignes metier configurables ;
 - `rag/retrieval.py` : normalisation lexicale, tokenisation, score BM25,
   expansion deterministe de requete, construction multi-requetes et fusion des
   candidats FAISS, diversification documentaire et filtres techniques simples.
@@ -429,7 +456,7 @@ Chaque chunk garde des métadonnées :
 Tu peux filtrer sur un document :
 
 ```bash
-python rag_pdf.py demander "Quels sont les points clés ?" --document ds-pure-storage-flashblade-e.pdf
+python rag_pdf.py demander "Quels sont les points clés ?" --document mon-document.pdf
 ```
 
 Tu peux filtrer sur une plage de pages :
@@ -441,7 +468,7 @@ python rag_pdf.py demander "Que dit le document ?" --page-min 2 --page-max 4
 Tu peux combiner :
 
 ```bash
-python rag_pdf.py demander "Résume cette partie" --document ds-pure-storage-flashblade-s.pdf --page-min 3 --page-max 5
+python rag_pdf.py demander "Résume cette partie" --document mon-document.pdf --page-min 3 --page-max 5
 ```
 
 ### Multi-doc reasoning

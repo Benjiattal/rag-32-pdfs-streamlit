@@ -34,7 +34,7 @@ STATIC_PDF_DIR = Path(__file__).resolve().parent / "static" / "pdfs"
 
 
 st.set_page_config(
-    page_title="Everpure RAG",
+    page_title="RAG documentaire",
     page_icon="◈",
     layout="wide",
 )
@@ -340,6 +340,7 @@ def initialiser_etat_session() -> None:
         "afficher_settings": False,
         "dernier_export_markdown": "",
         "modele_generation": os.getenv("OPENAI_MODEL", rag_pdf.DEFAULT_CHAT_MODEL),
+        "profil_domaine": os.getenv("RAG_DOMAIN_PROFILE", rag_pdf.DEFAULT_DOMAIN_PROFILE),
         "top_k": int(os.getenv("TOP_K", rag_pdf.DEFAULT_TOP_K)),
         "candidate_k": int(os.getenv("CANDIDATE_K", rag_pdf.DEFAULT_CANDIDATE_K)),
         "min_score": float(os.getenv("MIN_SCORE", rag_pdf.DEFAULT_MIN_SCORE)),
@@ -495,7 +496,7 @@ def remplacer_citations_par_liens(
     Remplace les citations longues produites par le modele par des numeros.
 
     Exemple :
-    "(ds-flasharray-xl.pdf, page 4)" devient "[1]" cliquable.
+    "(nom-du-document.pdf, page 4)" devient "[1]" cliquable.
     """
     references_par_numero = {
         int(reference["numero"]): reference for reference in references
@@ -1317,15 +1318,23 @@ def afficher_settings_panel() -> None:
 
 initialiser_etat_session()
 
+profil_actif_initial = st.session_state.get("profil_domaine", rag_pdf.DEFAULT_DOMAIN_PROFILE)
+titre_application = "Everpure" if profil_actif_initial == "everpure" else "RAG documentaire"
+sous_titre_application = (
+    "Profil métier Everpure actif : synonymes, consignes et aides spécialisées."
+    if profil_actif_initial == "everpure"
+    else "Assistant générique pour interroger un corpus PDF avec sources cliquables."
+)
+
 col_title, col_settings = st.columns([0.88, 0.12], vertical_alignment="top")
 
 with col_title:
     st.markdown(
-        """
+        f"""
         <div class="everpure-hero">
-            <div class="everpure-kicker">Enterprise Data Cloud RAG</div>
-            <h1>Everpure</h1>
-            <p>Assistant documentaire avec sources cliquables, retrieval hybride FAISS + BM25, et contrôle du corpus.</p>
+            <div class="everpure-kicker">Assistant RAG PDF</div>
+            <h1>{titre_application}</h1>
+            <p>{sous_titre_application}</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -1355,7 +1364,7 @@ context_tokens = st.session_state.context_tokens
 
 question = st.text_area(
     "Question",
-    placeholder="Exemple : Compare FlashArray et FlashBlade.",
+    placeholder="Exemple : résume les points clés du corpus.",
     height=100,
 )
 
@@ -1376,6 +1385,21 @@ modele_generation = st.selectbox(
         "Le retrieval reste identique : mêmes embeddings, même FAISS, mêmes sources."
     ),
 )
+
+profils_disponibles = rag_pdf.lister_profils_disponibles()
+if st.session_state.profil_domaine not in profils_disponibles:
+    st.session_state.profil_domaine = rag_pdf.DEFAULT_DOMAIN_PROFILE
+
+profil_domaine = st.selectbox(
+    "Profil RAG",
+    options=profils_disponibles,
+    key="profil_domaine",
+    help=(
+        "`generic` garde le RAG neutre pour tout corpus PDF. "
+        "`everpure` active les synonymes et consignes spécifiques Everpure/Pure Storage."
+    ),
+)
+os.environ["RAG_DOMAIN_PROFILE"] = profil_domaine
 
 afficher_historique()
 
@@ -1456,6 +1480,8 @@ llm_reranker = st.session_state.llm_reranker
 cross_encoder_reranker = st.session_state.cross_encoder_reranker
 comparer_reranker = st.session_state.comparer_reranker
 modele_generation = st.session_state.modele_generation
+profil_domaine = st.session_state.profil_domaine
+os.environ["RAG_DOMAIN_PROFILE"] = profil_domaine
 
 source_labels = {
     "pdf": "PDF locaux",
@@ -1467,6 +1493,7 @@ st.caption(
     f"Réglages retrieval de base : top_k={top_k}, candidate_k={candidate_k}, "
     f"min_score={min_score:.2f}, contexte={context_tokens} tokens, "
     f"modèle réponse={modele_generation}, "
+    f"profil RAG={profil_domaine}, "
     f"query rewrite LLM={'on' if query_rewrite_llm else 'off'}, "
     f"reranker LLM={'on' if llm_reranker else 'off'}, "
     f"BGE local={'on' if cross_encoder_reranker else 'off'}"
@@ -1489,8 +1516,8 @@ if cross_encoder_reranker and not rag_pdf.cross_encoder_disponible():
 
 if "pdf" not in source_types:
     st.warning(
-        "PDF locaux est désactivé. Les questions sur les datasheets PDF, comme FlashArray XL, "
-        "ne pourront pas retrouver les valeurs présentes dans les PDF."
+        "PDF locaux est désactivé. Les questions dont la réponse se trouve uniquement "
+        "dans les fichiers PDF ne pourront pas retrouver ces valeurs."
     )
 
 if st.button("Demander", type="primary"):

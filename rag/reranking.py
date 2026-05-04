@@ -17,6 +17,8 @@ from rag.engine import (  # noqa: F401
     cross_encoder_disponible,
     reranker_resultats_avec_cross_encoder,
     reranker_resultats,
+)
+from rag.everpure import (  # noqa: F401
     nombre_modeles_flasharray,
     prioriser_inventaire_flasharray,
     nombre_modeles_flashblade,

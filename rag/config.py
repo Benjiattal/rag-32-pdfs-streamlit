@@ -49,6 +49,7 @@ DEFAULT_TEMPERATURE = 0
 
 
 # Parametres retrieval.
+DEFAULT_DOMAIN_PROFILE = "generic"
 DEFAULT_TOP_K = 8
 DEFAULT_CANDIDATE_K = 80
 DEFAULT_CONTEXT_TOKEN_BUDGET = 6000
@@ -59,7 +60,9 @@ DEFAULT_CHUNK_OVERLAP_SENTENCES = 2
 
 
 # Web controle.
-DEFAULT_ALLOWED_WEB_DOMAINS = "purestorage.com,docs.purestorage.com,support.purestorage.com"
+# Par defaut, le RAG generique n'autorise aucun domaine web. Ajoute une
+# whitelist via RAG_ALLOWED_WEB_DOMAINS pour indexer des pages controlees.
+DEFAULT_ALLOWED_WEB_DOMAINS = ""
 
 
 # Options qualite, desactivees par defaut pour garder l'interface fluide.
