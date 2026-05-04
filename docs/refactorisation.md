@@ -29,7 +29,8 @@ large. La strategie retenue est donc progressive :
 | Search orchestration | `rag/search.py` | Extrait |
 | Reranking LLM / BGE | `rag/reranking.py` | Extrait |
 | Prompt et contexte long | `rag/prompting.py` | Extrait |
-| Pipeline final / CLI | `rag/engine.py` | Reste orchestrateur |
+| Pipeline final | `rag/pipeline.py` | Extrait |
+| CLI | `rag/engine.py` | Reste facade historique |
 
 ## Pourquoi ne pas tout extraire d'un coup ?
 
@@ -40,9 +41,9 @@ comportement.
 
 Exemple : les aides propres au profil Everpure, le prompt final, le reranking
 BGE/LLM, la reformulation LLM et la recherche `rechercher()` ont ete sortis du
-moteur principal. Le prochain risque concerne surtout `demander()` et la CLI,
-car ces points restent la facade historique appelee par `rag_pdf.py` et
-Streamlit.
+moteur principal. Le pipeline `demander()` vit maintenant dans `rag/pipeline.py`.
+Le prochain risque concerne surtout la CLI, car elle reste la facade historique
+appelee par `rag_pdf.py`.
 
 ## Regles de verification
 
@@ -60,6 +61,7 @@ for path in [
     "rag/env.py",
     "rag/ingestion.py",
     "rag/search.py",
+    "rag/pipeline.py",
     "rag/engine.py",
     "rag_pdf.py",
 ]:
@@ -73,15 +75,14 @@ depuis l'interface ou la CLI.
 
 ## Prochaine extraction recommandee
 
-La prochaine extraction logique est `rag/pipeline.py` ou `rag/cli.py`.
+La prochaine extraction logique est `rag/cli.py`.
 
 Elle devrait contenir :
 
-- la fonction `demander()` ;
-- la lecture des variables `TOP_K`, `CANDIDATE_K`, `MIN_SCORE` ;
-- l'enchainement `rechercher()` -> `construire_prompt()` -> `appeler_modele()` ;
-- eventuellement l'affichage CLI des sources.
+- la construction du parseur `argparse` ;
+- les sous-commandes `indexer`, `web-indexer` et `demander` ;
+- l'affichage CLI des reponses et des sources.
 
-La CLI peut rester dans `rag/engine.py` tant que l'API historique n'est pas
-totalement stabilisee. C'est volontaire : mieux vaut une facade encore simple
-qu'un decoupage trop fin difficile a expliquer en demo.
+La CLI peut rester dans `rag/engine.py` tant qu'elle reste courte. C'est
+volontaire : mieux vaut une facade simple qu'un decoupage trop fin difficile a
+expliquer en demo.

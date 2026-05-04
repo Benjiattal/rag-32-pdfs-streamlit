@@ -99,6 +99,9 @@ from rag.query_rewrite import (
     construire_requetes_recherche,
     statistiques_cache_query_rewrite,
 )
+from rag.pipeline import (
+    demander,
+)
 from rag.search import (
     calculer_parametres_recherche_adaptatifs,
     question_demande_portefeuille_capacites,
@@ -149,53 +152,6 @@ from rag.chunking import (
 
 # Le prompt et le contexte long vivent dans `rag.prompting`.
 # On les importe plus haut pour garder l'API historique de `rag_pdf.py`.
-
-
-# ==============================
-# --- 12. Pipeline complet ---
-# ==============================
-
-def demander(
-    question: str,
-    top_k: int | None = None,
-    candidate_k: int | None = None,
-    budget_tokens: int | None = None,
-    min_score: float | None = None,
-    filtre: FiltreMetadata | None = None,
-    modele_generation: str | None = None,
-    utiliser_query_rewrite_llm: bool | None = None,
-    utiliser_reranker_llm: bool | None = None,
-    utiliser_cross_encoder_reranker: bool | None = None,
-) -> str:
-    """
-    Pipeline complet :
-    question -> recherche FAISS -> prompt -> reponse OpenAI.
-    """
-    charger_env_local()
-
-    top_k = top_k or int(os.getenv("TOP_K", str(DEFAULT_TOP_K)))
-    candidate_k = candidate_k or int(os.getenv("CANDIDATE_K", str(DEFAULT_CANDIDATE_K)))
-    budget_tokens = budget_tokens or int(
-        os.getenv("CONTEXT_TOKEN_BUDGET", str(DEFAULT_CONTEXT_TOKEN_BUDGET))
-    )
-    min_score = min_score if min_score is not None else float(
-        os.getenv("MIN_SCORE", str(DEFAULT_MIN_SCORE))
-    )
-
-    resultats = rechercher(
-        question,
-        top_k=top_k,
-        candidate_k=candidate_k,
-        min_score=min_score,
-        filtre=filtre,
-        utiliser_query_rewrite_llm=utiliser_query_rewrite_llm,
-        utiliser_reranker_llm=utiliser_reranker_llm,
-        utiliser_cross_encoder_reranker=utiliser_cross_encoder_reranker,
-    )
-    prompt = construire_prompt(question, resultats, budget_tokens=budget_tokens)
-    reponse = appeler_modele(prompt, modele=modele_generation)
-
-    return reponse
 
 
 def afficher_sources(

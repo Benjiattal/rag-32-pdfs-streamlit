@@ -412,14 +412,14 @@ Les briques deja sorties du moteur principal :
   injection des contraintes du profil actif.
 - `rag/search.py` : orchestration de la recherche FAISS multi-requetes, filtres,
   paramètres adaptatifs et rerankers optionnels.
+- `rag/pipeline.py` : enchainement final recherche -> prompt -> generation.
 - `rag/reranking.py` : score hybride FAISS + BM25, reranker LLM, worker BGE et
   cache de reranking.
 - `rag/prompting.py` : contexte long, prompt final, consignes de citation et
   injection du profil actif.
 
-`rag/engine.py` reste l'orchestrateur historique du pipeline. La prochaine
-extraction recommandee est la CLI ou le pipeline `demander()`, en gardant des
-petites etapes testables.
+`rag/engine.py` reste la facade historique de la CLI. La prochaine extraction
+recommandee est la CLI elle-meme, en gardant des petites etapes testables.
 
 Pour suivre la strategie de simplification :
 

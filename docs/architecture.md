@@ -113,6 +113,7 @@ flowchart LR
 | Hybrid retrieval | Combiner semantique et lexical | FAISS + BM25 maison |
 | Reranking | Reclasser les meilleurs candidats | BGE CrossEncoder ou LLM |
 | Prompting | Construire le contexte long et les consignes finales | `rag/prompting.py` |
+| Pipeline final | Enchainer recherche, prompt et generation | `rag/pipeline.py` |
 | Generation | Produire la reponse finale | `gpt-4.1-nano`, `gpt-5.4-nano`, `gpt-5.4-mini` |
 | Trace | Expliquer la construction de la reponse | Streamlit |
 
@@ -131,12 +132,12 @@ des chunks retrouves. La qualite depend donc d'abord du retrieval :
 - Python 3.11.4 pour stabiliser Streamlit, FAISS, PyTorch et BGE.
 - `rag/config.py`, `rag/models.py`, `rag/llm.py`, `rag/embeddings.py`,
   `rag/chunking.py`, `rag/ingestion.py`, `rag/retrieval.py`,
-  `rag/query_rewrite.py`, `rag/search.py`, `rag/prompting.py` et
-  `rag/profiles.py` isolent les responsabilites principales.
+  `rag/query_rewrite.py`, `rag/search.py`, `rag/prompting.py`,
+  `rag/pipeline.py` et `rag/profiles.py` isolent les responsabilites
+  principales.
 - `rag/domain_profiles/` contient les synonymes et consignes metier activables.
-- `rag/engine.py` reste l'orchestrateur historique de la CLI et du pipeline
-  `demander()`. Les prochaines extractions doivent continuer par petits blocs :
-  pipeline final, puis CLI.
+- `rag/engine.py` reste la facade historique de la CLI. La prochaine extraction
+  logique est la CLI elle-meme, si elle continue a grossir.
 - FAISS local pour garder un POC simple, rapide et sans service externe.
 - BM25 en complement de FAISS pour mieux capter les noms produits et acronymes.
 - BGE optionnel : utile pour departager des chunks proches, mais pas toujours
