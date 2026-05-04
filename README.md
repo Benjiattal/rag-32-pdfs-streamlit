@@ -317,7 +317,25 @@ démonstration "magique" en discussion maîtrisée. Elle permet d'expliquer
 pourquoi une réponse est bonne, pourquoi elle peut être incomplète, et quel
 levier activer pour l'améliorer.
 
-## 8. Evaluation retrieval
+## 8. Tests unitaires rapides
+
+Le dossier `tests/` contient des tests simples sur les briques pures du RAG :
+
+- chunking par phrases et sections ;
+- tokenisation, normalisation et BM25 ;
+- chargement des profils `generic` et `everpure`.
+
+Ces tests ne lancent pas Streamlit, ne reconstruisent pas FAISS et n'appellent
+pas OpenAI. Ils servent à vérifier rapidement qu'une refactorisation ne casse
+pas les fondations du moteur.
+
+Commande recommandée :
+
+```bash
+.venv311/bin/python -m unittest discover -s tests -v
+```
+
+## 9. Evaluation retrieval
 
 Un petit jeu d'évaluation vit dans :
 
