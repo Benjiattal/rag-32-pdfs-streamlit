@@ -410,14 +410,16 @@ Les briques deja sorties du moteur principal :
   candidats FAISS, diversification documentaire et filtres techniques simples.
 - `rag/query_rewrite.py` : reformulation LLM optionnelle, cache de rewrite et
   injection des contraintes du profil actif.
+- `rag/search.py` : orchestration de la recherche FAISS multi-requetes, filtres,
+  paramètres adaptatifs et rerankers optionnels.
 - `rag/reranking.py` : score hybride FAISS + BM25, reranker LLM, worker BGE et
   cache de reranking.
 - `rag/prompting.py` : contexte long, prompt final, consignes de citation et
   injection du profil actif.
 
 `rag/engine.py` reste l'orchestrateur historique du pipeline. La prochaine
-extraction recommandee est l'orchestration de recherche, en gardant des petites
-etapes testables.
+extraction recommandee est la CLI ou le pipeline `demander()`, en gardant des
+petites etapes testables.
 
 Pour suivre la strategie de simplification :
 

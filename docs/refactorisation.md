@@ -26,9 +26,10 @@ large. La strategie retenue est donc progressive :
 | Retrieval lexical / BM25 / expansion / multi-requetes / fusion candidats / filtres simples | `rag/retrieval.py` | Fonctions locales extraites |
 | Query rewrite LLM | `rag/query_rewrite.py` | Extrait |
 | Profils metier optionnels | `rag/profiles.py`, `rag/domain_profiles/`, `rag/everpure.py` | Extrait |
-| Retrieval orchestration | `rag/engine.py` | Reste orchestrateur |
+| Search orchestration | `rag/search.py` | Extrait |
 | Reranking LLM / BGE | `rag/reranking.py` | Extrait |
 | Prompt et contexte long | `rag/prompting.py` | Extrait |
+| Pipeline final / CLI | `rag/engine.py` | Reste orchestrateur |
 
 ## Pourquoi ne pas tout extraire d'un coup ?
 
@@ -38,9 +39,10 @@ trop rapide peut creer des imports circulaires ou changer subtilement le
 comportement.
 
 Exemple : les aides propres au profil Everpure, le prompt final, le reranking
-BGE/LLM et la reformulation LLM ont ete sortis du moteur principal. Le prochain
-risque concerne surtout `rechercher()`, car cette fonction orchestre embeddings,
-FAISS, filtres, reranking et diversification.
+BGE/LLM, la reformulation LLM et la recherche `rechercher()` ont ete sortis du
+moteur principal. Le prochain risque concerne surtout `demander()` et la CLI,
+car ces points restent la facade historique appelee par `rag_pdf.py` et
+Streamlit.
 
 ## Regles de verification
 
@@ -57,6 +59,7 @@ for path in [
     "rag/chunking.py",
     "rag/env.py",
     "rag/ingestion.py",
+    "rag/search.py",
     "rag/engine.py",
     "rag_pdf.py",
 ]:
@@ -70,17 +73,15 @@ depuis l'interface ou la CLI.
 
 ## Prochaine extraction recommandee
 
-La prochaine extraction logique est `rag/search.py` ou `rag/orchestrator.py`.
+La prochaine extraction logique est `rag/pipeline.py` ou `rag/cli.py`.
 
 Elle devrait contenir :
 
-- la fonction `rechercher()` ;
-- l'application des parametres adaptatifs ;
-- le passage multi-requetes vers FAISS ;
-- l'application des filtres techniques ;
-- le choix des rerankers optionnels.
+- la fonction `demander()` ;
+- la lecture des variables `TOP_K`, `CANDIDATE_K`, `MIN_SCORE` ;
+- l'enchainement `rechercher()` -> `construire_prompt()` -> `appeler_modele()` ;
+- eventuellement l'affichage CLI des sources.
 
-La fonction `rechercher()` peut rester dans `rag/engine.py` tant que
-l'orchestration globale n'est pas stabilisee. C'est un choix volontaire : mieux
-vaut un orchestrateur encore un peu large qu'un decoupage premature difficile a
-expliquer.
+La CLI peut rester dans `rag/engine.py` tant que l'API historique n'est pas
+totalement stabilisee. C'est volontaire : mieux vaut une facade encore simple
+qu'un decoupage trop fin difficile a expliquer en demo.

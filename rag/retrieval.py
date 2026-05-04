@@ -5,8 +5,7 @@ Responsabilite :
 regrouper les fonctions deterministes utilisees par le retrieval hybride.
 
 Ce module ne charge ni FAISS, ni OpenAI. Il doit rester rapide a importer et
-facile a tester. Les fonctions plus sensibles comme `rechercher()` restent pour
-l'instant dans `rag.engine`.
+facile a tester. L'orchestration FAISS complete vit dans `rag.search`.
 """
 
 from __future__ import annotations
