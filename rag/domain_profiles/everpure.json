@@ -1,0 +1,87 @@
+{
+  "name": "everpure",
+  "display_name": "Everpure / Pure Storage",
+  "description": "Profil optionnel pour les documents Everpure et Pure Storage.",
+  "query_rewrite_context": "Tu aides un moteur de recherche RAG sur des documents Everpure/Pure Storage.",
+  "query_rewrite_extra_constraints": [
+    "Si l'utilisateur dit \"serveurs FlashArray\", comprends \"baies / modèles / appliances FlashArray / storage arrays\".",
+    "Privilégie les termes techniques exacts susceptibles d'apparaître dans des datasheets Pure Storage."
+  ],
+  "expansion_rules": [
+    {
+      "any_terms": ["gsi"],
+      "text": "global system integrator system integrator partner partners technology alliance program go-to-market business synergy joint solutions customer outcomes professional services managed services implementation deployment customer transformation"
+    },
+    {
+      "any_terms": ["evergreen"],
+      "text": "evergreen architecture ever modern nondisruptive upgrade no data migration no planned downtime subscription"
+    },
+    {
+      "any_terms": ["everpure"],
+      "text": "Everpure Platform Everpure Fusion Pure1 Evergreen Architecture Evergreen One Cloud Dedicated FlashArray FlashBlade unified data plane intelligent control plane policy driven automation AIOps"
+    },
+    {
+      "any_terms": ["solution", "solutions"],
+      "text": "portfolio platform products services capabilities use cases FlashArray FlashBlade Pure1 Everpure Fusion Evergreen One Cloud Dedicated Portworx"
+    },
+    {
+      "any_terms": ["volumetrie", "volumetries", "volumétrie", "volumétries", "capacite", "capacites", "capacité", "capacités", "capacity", "capacities"],
+      "text": "capacity capacities volumetry volume storage raw capacity effective capacity usable capacity maximum capacity up to PB PiB TB TiB data reduction FlashArray//XL FlashArray//ST FlashArray family FlashBlade//S FlashBlade//E FlashBlade//EXA Cloud Dedicated Cloud Block Store Portworx DirectFlash Shelf technical specifications"
+    },
+    {
+      "any_terms": ["consommation", "consommations", "electrique", "electriques", "électrique", "électriques", "watts", "watt", "puissance", "power"],
+      "text": "power consumption watts watt typical peak physical specifications technical specifications physical capacity power and cooling 2,635 3,455 2,475 3,160 2,115 2,700 566 667"
+    },
+    {
+      "any_terms": ["flasharray xl", "flasharray//xl"],
+      "text": "FlashArray//XL FlashArray XL XL190 R5 XL170 R5 XL130 R5 DirectFlash Shelf technical specifications"
+    },
+    {
+      "all_terms": ["flasharray"],
+      "any_terms": ["serveur", "serveurs", "server", "servers", "modele", "modeles", "modèle", "modèles", "gamme", "famille", "liste", "tous", "toutes"],
+      "text": "FlashArray models FlashArray family product line storage arrays FlashArray//ST FlashArray//XL R5 FlashArray//X R5 FlashArray//C R5 FlashArray//E FlashArray Models Model Optimized For Strengths Capacity raw XL190 R5 XL170 R5 XL130 R5 X10 X20 X50 X70 X90 C20 C40 C60 C70 C90"
+    },
+    {
+      "all_terms": ["flashblade"],
+      "any_terms": ["baie", "baies", "stockage", "gamme", "famille", "liste", "tous", "toutes", "modele", "modeles", "modèle", "modèles", "descriptif", "description"],
+      "text": "FlashBlade product family storage arrays unified file object storage FlashBlade//S FlashBlade//S500 FlashBlade//E FlashBlade//EXA FlashBlade S FlashBlade E FlashBlade EXA AI HPC neocloud repository workloads unstructured data high performance scale-out capacity optimized disaggregated architecture metadata data nodes"
+    }
+  ],
+  "technical_focus_rules": [
+    {
+      "any_terms": ["flasharray xl", "flasharray//xl"],
+      "filename_contains": ["flasharray-xl"]
+    }
+  ],
+  "prompt_extra_rules": [
+    "Si la question demande une synthese pour un role metier comme GSI, integrateur, partenaire, revendeur ou client final, ne cherche pas obligatoirement le mot exact dans le contexte.",
+    "Pour ce type de synthese metier, deduis les implications a partir des elements presents : programme partenaires, go-to-market, joint solutions, SLA, absence de migration, absence de downtime, automatisation, reduction du risque, garanties, consommation flexible.",
+    "Ne reponds pas \"Je ne sais pas\" si le contexte contient des benefices exploitables mais pas le mot exact du role demande.",
+    "Dans ce cas, indique clairement que l'analyse est une interpretation a partir des sources, pas une citation explicite du role.",
+    "Pour une question de type \"quelles solutions\", structure la reponse par solution ou capacite : solution, avantage, interet pour un GSI, source.",
+    "Pour une question qui demande la liste des modeles, serveurs, baies, arrays, gammes ou familles FlashArray, commence par expliquer que \"serveur\" est compris ici comme \"baie/modele FlashArray\" si necessaire.",
+    "Pour cette liste FlashArray, distingue les familles de produits (par exemple FlashArray//ST, //XL, //X, //C, //E) et les declinaisons explicites presentes dans le contexte (par exemple //XL190 R5, //XL170 R5, //XL130 R5).",
+    "Si le contexte contient un tableau \"FlashArray Models\" ou \"Model / Optimized For\", utilise-le comme source principale pour la liste.",
+    "Si une aide d'extraction FlashArray est fournie, utilise-la comme checklist pour ne pas oublier les modeles detectes dans le contexte.",
+    "Pour une liste FlashArray, reponds en tableau avec une ligne par modele ou declinaison detectee, et une colonne Source. Ne mets pas seulement une liste de sources globale a la fin.",
+    "Pour une question qui demande la liste des baies ou de la gamme FlashBlade, distingue FlashBlade//S, FlashBlade//E et FlashBlade//EXA si ces familles sont presentes dans le contexte.",
+    "Pour FlashBlade//EXA, indique clairement qu'il s'agit d'une architecture orientee AI/HPC/neocloud avec metadata cluster et data nodes, si ces elements sont presents.",
+    "Pour une liste FlashBlade, n'utilise pas de grand tableau Markdown. Utilise plutot une liste compacte avec un bloc par baie/famille, car les descriptifs sont trop longs pour un tableau lisible.",
+    "Dans chaque bloc FlashBlade, garde le format : **Nom** [N] — descriptif court ; usage principal ; precision disponible."
+  ],
+  "prompt_extra_formats": [
+    "Format prefere pour les questions de synthese business :",
+    "1. Synthese executive en 2-3 phrases.",
+    "2. Liste ou tableau des solutions/capacites avec : ce que c'est ; avantage client ; interet pour un GSI ; source au format [N].",
+    "3. Recommandation finale courte.",
+    "",
+    "Format prefere pour les questions de liste FlashArray :",
+    "| Modele | Niveau | Optimise pour / role | Capacite ou precision disponible | Source |",
+    "| ... | Famille ou declinaison | ... | ... | [N] |",
+    "",
+    "Format prefere pour les questions de liste FlashBlade :",
+    "- **FlashBlade//S** [N] — Descriptif : ... Usage : ... Precision : ...",
+    "- **FlashBlade//E** [N] — Descriptif : ... Usage : ... Precision : ...",
+    "- **FlashBlade//EXA** [N] — Descriptif : ... Usage : ... Precision : ..."
+  ]
+}
