@@ -12,7 +12,8 @@ le code est maintenant expose via le package `rag/` :
 - `rag.embeddings` : embeddings OpenAI et cache ;
 - `rag.retrieval` : FAISS, BM25, filtres metadata, top_k adaptatif ;
 - `rag.reranking` : reranking hybride et LLM ;
-- `rag.llm` : prompt final et generation.
+- `rag.prompting` : contexte long, prompt final et consignes de citation ;
+- `rag.llm` : appel au modele de generation.
 
 Pourquoi garder `rag_pdf.py` ?
 Pour ne pas casser l'existant :

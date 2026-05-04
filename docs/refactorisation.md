@@ -27,7 +27,7 @@ large. La strategie retenue est donc progressive :
 | Profils metier optionnels | `rag/profiles.py`, `rag/domain_profiles/`, `rag/everpure.py` | Extrait |
 | Retrieval orchestration | `rag/engine.py` | Reste orchestrateur |
 | Reranking LLM / BGE | `rag/reranking.py` | Facade a extraire |
-| Prompt et contexte long | futur `rag/prompting.py` | A faire apres retrieval |
+| Prompt et contexte long | `rag/prompting.py` | Extrait |
 
 ## Pourquoi ne pas tout extraire d'un coup ?
 
@@ -36,10 +36,10 @@ prompt, generation. Ces etapes se passent des objets entre elles. Une extraction
 trop rapide peut creer des imports circulaires ou changer subtilement le
 comportement.
 
-Exemple : les aides propres au profil Everpure ont ete sorties du moteur
-principal. Le prochain risque concerne surtout le prompt et le contexte long :
-ils doivent etre extraits sans changer les citations, le budget de contexte ou
-les sources cliquables.
+Exemple : les aides propres au profil Everpure et le prompt final ont ete sortis
+du moteur principal. Le prochain risque concerne surtout le reranking BGE/LLM :
+il melange cache, worker local et appels optionnels, donc l'extraction doit
+rester prudente.
 
 ## Regles de verification
 
@@ -69,14 +69,15 @@ depuis l'interface ou la CLI.
 
 ## Prochaine extraction recommandee
 
-La prochaine extraction logique est `rag/prompting.py`.
+La prochaine extraction logique est `rag/reranking.py`.
 
 Elle devrait contenir :
 
-- la construction du contexte long ;
-- les regles de prompt generiques ;
-- l'injection des consignes du profil actif ;
-- le formatage des sources transmises au modele.
+- le cache du reranker LLM ;
+- le prompt strict JSON du reranker LLM ;
+- le chargement du CrossEncoder/BGE ;
+- le worker BGE externe ;
+- la fonction de reranking commune.
 
 La fonction `rechercher()` peut rester dans `rag/engine.py` tant que
 l'orchestration globale n'est pas stabilisee. C'est un choix volontaire : mieux
