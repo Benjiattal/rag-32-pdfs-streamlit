@@ -396,7 +396,16 @@ Utiliser l'évaluation comme garde-fou après une refactorisation :
 OPENAI_API_KEY="$(security find-generic-password -a "$USER" -s "OPENAI_API_KEY" -w)" \
 .venv311/bin/python scripts/evaluate_retrieval.py \
   --fail-under-doc-recall 0.70 \
-  --fail-under-keyword-recall 0.70
+  --fail-under-keyword-recall 0.70 \
+  --fail-on-any-miss
+```
+
+Comparer deux rapports JSON :
+
+```bash
+.venv311/bin/python scripts/compare_retrieval_reports.py \
+  reports/retrieval-baseline.json \
+  reports/retrieval-current.json
 ```
 
 Lecture des scores :
@@ -405,6 +414,15 @@ Lecture des scores :
 - `keyword_recall` : part des mots clés attendus présents dans les chunks ;
 - `duration_s` : temps de retrieval ;
 - `bge_active` : indique si BGE a réellement reranké.
+
+Si le benchmark échoue :
+
+- regarder les questions qui ont `doc_recall=0` ou `keyword_recall=0` ;
+- vérifier que les documents attendus sont bien indexés ;
+- inspecter les chunks avec `python rag_pdf.py retrieve "question"` ;
+- ajuster `top_k`, `candidate_k` et `min_score` ;
+- comparer FAISS + BM25 avec FAISS + BM25 + BGE ;
+- vérifier si le chunking coupe une section ou un tableau important.
 
 ## 10. Evaluation des réponses finales
 

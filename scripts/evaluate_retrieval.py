@@ -174,7 +174,12 @@ def afficher_tableau(resultats: list[dict], resume: dict) -> None:
     print(f"Temps moyen retrieval  : {resume['mean_duration_s']:.2f}s")
 
 
-def sauvegarder_rapport(chemin: Path, configuration: dict, resultats: list[dict], resume: dict) -> None:
+def sauvegarder_rapport(
+    chemin: Path,
+    configuration: dict,
+    resultats: list[dict],
+    resume: dict,
+) -> None:
     """Sauvegarde un rapport JSON pour comparer deux runs plus tard."""
     chemin.parent.mkdir(parents=True, exist_ok=True)
     rapport = {
@@ -190,15 +195,18 @@ def sauvegarder_rapport(chemin: Path, configuration: dict, resultats: list[dict]
 
 def verifier_seuils(
     resume: dict,
+    resultats: list[dict] | None,
     fail_under_doc_recall: float | None,
     fail_under_keyword_recall: float | None,
+    fail_on_any_miss: bool = False,
 ) -> bool:
     """
     Retourne True si les seuils sont respectes.
 
-    Ces seuils sont optionnels. Ils deviennent utiles quand on veut utiliser le
-    benchmark comme garde-fou apres une refactorisation ou un changement de
-    chunking.
+    Les seuils de moyenne sont utiles, mais ils peuvent masquer une question
+    completement ratee si les autres questions compensent. L'option
+    `fail_on_any_miss` ajoute donc un controle plus strict : chaque cas doit
+    retrouver au moins un document attendu et un mot cle attendu.
     """
     ok = True
 
@@ -223,6 +231,21 @@ def verifier_seuils(
             file=sys.stderr,
         )
         ok = False
+
+    if fail_on_any_miss and resultats is not None:
+        questions_ratees = [
+            resultat["id"]
+            for resultat in resultats
+            if resultat.get("doc_recall", 1.0) == 0
+            or resultat.get("keyword_recall", 1.0) == 0
+        ]
+        if questions_ratees:
+            print(
+                "ECHEC: au moins une question a un doc_recall=0 "
+                f"ou keyword_recall=0: {', '.join(questions_ratees)}",
+                file=sys.stderr,
+            )
+            ok = False
 
     return ok
 
@@ -253,6 +276,14 @@ def main() -> None:
         type=float,
         default=None,
         help="Retourne un code erreur si la moyenne keyword_recall est sous ce seuil.",
+    )
+    parser.add_argument(
+        "--fail-on-any-miss",
+        action="store_true",
+        help=(
+            "Retourne un code erreur si une question a doc_recall=0 "
+            "ou keyword_recall=0."
+        ),
     )
     args = parser.parse_args()
 
@@ -311,8 +342,10 @@ def main() -> None:
 
     seuils_ok = verifier_seuils(
         resume,
+        resultats=resultats,
         fail_under_doc_recall=args.fail_under_doc_recall,
         fail_under_keyword_recall=args.fail_under_keyword_recall,
+        fail_on_any_miss=args.fail_on_any_miss,
     )
 
     if not seuils_ok:
