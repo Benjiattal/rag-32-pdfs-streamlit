@@ -23,6 +23,7 @@ docs/sales-engineering-demo.md
 docs/architecture.md
 docs/refactorisation.md
 docs/performance.md
+docs/rag-sales-engineering-presentation-en.pptx
 ```
 
 ## Pourquoi ce projet est intéressant pour un rôle Sales / SE
