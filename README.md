@@ -334,11 +334,11 @@ Les briques deja sorties du moteur principal :
 - `rag/ingestion.py` : lecture PDF/Web, indexation FAISS et chargement d'index.
 - `rag/retrieval.py` : normalisation lexicale, tokenisation, score BM25,
   expansion deterministe de requete, construction multi-requetes et fusion des
-  candidats FAISS.
+  candidats FAISS, diversification documentaire et filtres techniques simples.
 
 `rag/engine.py` reste l'orchestrateur historique du pipeline. La prochaine
-extraction recommandee est la suite du retrieval : filtres simples, puis
-seulement ensuite heuristiques metier.
+extraction recommandee est la suite du retrieval : heuristiques metier, puis
+reranking, en gardant des petites etapes testables.
 
 Pour suivre la strategie de simplification :
 

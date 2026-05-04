@@ -23,8 +23,8 @@ large. La strategie retenue est donc progressive :
 | Chunking | `rag/chunking.py` | Extrait |
 | Environnement local | `rag/env.py` | Extrait |
 | Ingestion PDF / Web | `rag/ingestion.py` | Extrait |
-| Retrieval lexical / BM25 / expansion / multi-requetes / fusion candidats | `rag/retrieval.py` | Fonctions locales extraites |
-| Retrieval orchestration / filtres | `rag/engine.py` puis `rag/retrieval.py` | A extraire prudemment |
+| Retrieval lexical / BM25 / expansion / multi-requetes / fusion candidats / filtres simples | `rag/retrieval.py` | Fonctions locales extraites |
+| Retrieval orchestration / heuristiques metier | `rag/engine.py` puis `rag/retrieval.py` | A extraire prudemment |
 | Reranking LLM / BGE | `rag/reranking.py` | Facade a extraire |
 | Prompt et contexte long | futur `rag/prompting.py` | A faire apres retrieval |
 

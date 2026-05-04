@@ -119,6 +119,9 @@ from rag.retrieval import (
     construire_question_recherche as construire_question_recherche_locale,
     construire_requetes_recherche as construire_requetes_recherche_locales,
     fusionner_candidats_multi_requetes,
+    diversifier_resultats_par_document,
+    contient_valeurs_techniques,
+    filtrer_resultats_pour_valeurs_techniques as filtrer_resultats_pour_valeurs_techniques_local,
 )
 
 
@@ -1239,106 +1242,22 @@ def calculer_parametres_recherche_adaptatifs(
     )
 
 
-def diversifier_resultats_par_document(
-    resultats: list[ResultatRecherche],
-    top_k: int,
-    max_par_document: int = 2,
-) -> list[ResultatRecherche]:
-    """
-    Garde les meilleurs resultats, mais evite qu'un seul document monopolise tout.
-
-    Utile pour les questions "toutes les solutions", ou l'objectif est de couvrir
-    plusieurs produits plutot que d'extraire dix chunks d'une meme datasheet.
-    """
-    selection: list[ResultatRecherche] = []
-    compte_par_document: dict[str, int] = {}
-
-    for resultat in resultats:
-        fichier = resultat.morceau.fichier
-
-        if compte_par_document.get(fichier, 0) >= max_par_document:
-            continue
-
-        selection.append(resultat)
-        compte_par_document[fichier] = compte_par_document.get(fichier, 0) + 1
-
-        if len(selection) >= top_k:
-            return selection
-
-    for resultat in resultats:
-        if resultat in selection:
-            continue
-
-        selection.append(resultat)
-
-        if len(selection) >= top_k:
-            break
-
-    return selection
-
-
-def contient_valeurs_techniques(texte: str) -> bool:
-    """Repere les chunks qui contiennent probablement des valeurs techniques."""
-    texte_minuscule = texte.lower()
-    contient_nombre = bool(re.search(r"\d", texte_minuscule))
-    contient_unite = any(
-        unite in texte_minuscule
-        for unite in [
-            "watts",
-            "watt",
-            "tb",
-            "tib",
-            "pb",
-            "pib",
-            "gb/s",
-            "iops",
-            "latency",
-            "physical",
-            "technical specifications",
-        ]
-    )
-    return contient_nombre and contient_unite
-
-
 def filtrer_resultats_pour_valeurs_techniques(
     question: str,
     resultats: list[ResultatRecherche],
 ) -> list[ResultatRecherche]:
     """
-    Pour les questions techniques, evite de noyer le modele avec du contenu
-    marketing si des chunks de specifications sont disponibles.
+    Wrapper historique qui injecte la detection d'intention technique.
+
+    Le filtrage lui-meme vit dans `rag.retrieval`; la detection metier reste ici
+    pour l'instant afin de limiter le deplacement des heuristiques.
     """
-    if not question_demande_valeurs_techniques(question):
-        return resultats
+    return filtrer_resultats_pour_valeurs_techniques_local(
+        question,
+        resultats,
+        question_demande_valeurs_techniques_fn=question_demande_valeurs_techniques,
+    )
 
-    resultats_techniques = [
-        resultat for resultat in resultats if contient_valeurs_techniques(resultat.morceau.texte)
-    ]
-
-    if not resultats_techniques:
-        return resultats
-
-    question_minuscule = question.lower()
-
-    if "flasharray xl" in question_minuscule or "flasharray//xl" in question_minuscule:
-        resultats_flasharray_xl = [
-            resultat
-            for resultat in resultats_techniques
-            if "flasharray-xl" in resultat.morceau.fichier.lower()
-        ]
-
-        if resultats_flasharray_xl:
-            resultats_techniques = resultats_flasharray_xl
-
-    if any(mot in question_minuscule for mot in ["consommation", "consomamtion", "electrique", "électrique", "watts", "watt", "puissance"]):
-        resultats_watts = [
-            resultat for resultat in resultats_techniques if "watt" in resultat.morceau.texte.lower()
-        ]
-
-        if resultats_watts:
-            return resultats_watts
-
-    return resultats_techniques
 
 
 def rechercher(

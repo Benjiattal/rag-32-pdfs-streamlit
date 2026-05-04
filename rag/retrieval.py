@@ -18,7 +18,7 @@ import unicodedata
 from collections.abc import Callable
 
 from rag.config import DEFAULT_QUERY_REWRITE_LLM
-from rag.models import FiltreMetadata, Morceau
+from rag.models import FiltreMetadata, Morceau, ResultatRecherche
 
 
 def normaliser_texte_recherche(texte: str) -> str:
@@ -483,3 +483,144 @@ def fusionner_candidats_multi_requetes(
         candidats.append((score + bonus_multi_requetes, morceaux[indice]))
 
     return sorted(candidats, key=lambda candidat: candidat[0], reverse=True)
+
+
+def diversifier_resultats_par_document(
+    resultats: list[ResultatRecherche],
+    top_k: int,
+    max_par_document: int = 2,
+) -> list[ResultatRecherche]:
+    """
+    Garde les meilleurs resultats, mais evite qu'un seul document monopolise tout.
+
+    Utile pour les questions "toutes les solutions", ou l'objectif est de couvrir
+    plusieurs produits plutot que d'extraire dix chunks d'une meme datasheet.
+    """
+    selection: list[ResultatRecherche] = []
+    compte_par_document: dict[str, int] = {}
+
+    for resultat in resultats:
+        fichier = resultat.morceau.fichier
+
+        if compte_par_document.get(fichier, 0) >= max_par_document:
+            continue
+
+        selection.append(resultat)
+        compte_par_document[fichier] = compte_par_document.get(fichier, 0) + 1
+
+        if len(selection) >= top_k:
+            return selection
+
+    for resultat in resultats:
+        if resultat in selection:
+            continue
+
+        selection.append(resultat)
+
+        if len(selection) >= top_k:
+            break
+
+    return selection
+
+
+def contient_valeurs_techniques(texte: str) -> bool:
+    """Repere les chunks qui contiennent probablement des valeurs techniques."""
+    texte_minuscule = texte.lower()
+    contient_nombre = bool(re.search(r"\d", texte_minuscule))
+    contient_unite = any(
+        unite in texte_minuscule
+        for unite in [
+            "watts",
+            "watt",
+            "tb",
+            "tib",
+            "pb",
+            "pib",
+            "gb/s",
+            "iops",
+            "latency",
+            "physical",
+            "technical specifications",
+        ]
+    )
+    return contient_nombre and contient_unite
+
+
+def filtrer_resultats_pour_valeurs_techniques(
+    question: str,
+    resultats: list[ResultatRecherche],
+    question_demande_valeurs_techniques_fn: Callable[[str], bool] | None = None,
+) -> list[ResultatRecherche]:
+    """
+    Pour les questions techniques, evite de noyer le modele avec du contenu
+    marketing si des chunks de specifications sont disponibles.
+
+    La detection de l'intention technique peut rester dans `rag.engine` et etre
+    injectee ici. Sans fonction injectee, on applique seulement le filtre si la
+    question contient directement des indices techniques simples.
+    """
+    if question_demande_valeurs_techniques_fn is None:
+        question_est_technique = any(
+            mot in question.lower()
+            for mot in [
+                "consommation",
+                "consomamtion",
+                "electrique",
+                "\u00e9lectrique",
+                "watts",
+                "watt",
+                "puissance",
+                "capacity",
+                "capacite",
+                "capacit\u00e9",
+            ]
+        )
+    else:
+        question_est_technique = question_demande_valeurs_techniques_fn(question)
+
+    if not question_est_technique:
+        return resultats
+
+    resultats_techniques = [
+        resultat
+        for resultat in resultats
+        if contient_valeurs_techniques(resultat.morceau.texte)
+    ]
+
+    if not resultats_techniques:
+        return resultats
+
+    question_minuscule = question.lower()
+
+    if "flasharray xl" in question_minuscule or "flasharray//xl" in question_minuscule:
+        resultats_flasharray_xl = [
+            resultat
+            for resultat in resultats_techniques
+            if "flasharray-xl" in resultat.morceau.fichier.lower()
+        ]
+
+        if resultats_flasharray_xl:
+            resultats_techniques = resultats_flasharray_xl
+
+    if any(
+        mot in question_minuscule
+        for mot in [
+            "consommation",
+            "consomamtion",
+            "electrique",
+            "\u00e9lectrique",
+            "watts",
+            "watt",
+            "puissance",
+        ]
+    ):
+        resultats_watts = [
+            resultat
+            for resultat in resultats_techniques
+            if "watt" in resultat.morceau.texte.lower()
+        ]
+
+        if resultats_watts:
+            return resultats_watts
+
+    return resultats_techniques
