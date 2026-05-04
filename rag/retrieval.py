@@ -309,7 +309,7 @@ def fusionner_candidats_multi_requetes(
     - on ajoute un petit bonus s'il a ete retrouve par plusieurs requetes.
 
     Ce bonus reste volontairement faible : il signale la robustesse du match sans
-    ecraser BM25, les heuristiques metier ou le reranker LLM.
+    ecraser BM25, les ajustements de profil ou le reranker LLM.
     """
     meilleurs_scores: dict[int, float] = {}
     nombre_requetes_match: dict[int, int] = {}

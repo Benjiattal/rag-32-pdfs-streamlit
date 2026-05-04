@@ -2,8 +2,8 @@
 Reranking des resultats.
 
 Responsabilite :
-ameliorer l'ordre des chunks apres FAISS avec BM25, heuristiques metier et
-reranker LLM optionnel.
+ameliorer l'ordre des chunks apres FAISS avec BM25, profils optionnels et
+rerankers optionnels.
 """
 
 from rag.engine import (  # noqa: F401

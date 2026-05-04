@@ -1,7 +1,11 @@
-# Architecture du RAG Everpure
+# Architecture du RAG documentaire
 
-Ce document sert de carte d'explication pour une demo SE. Il montre le chemin
-d'une question utilisateur jusqu'a une reponse sourcee.
+Ce document sert de carte d'explication pour une demo Sales Engineering. Il
+montre le chemin d'une question utilisateur jusqu'a une reponse sourcee.
+
+Le moteur est generique par defaut. Les optimisations propres a un domaine
+metier, par exemple Everpure/Pure Storage, sont chargees comme profils
+optionnels.
 
 ## Vue d'ensemble
 
@@ -13,6 +17,8 @@ flowchart LR
     CHUNK --> EMB[Embeddings OpenAI]
     EMB --> FAISS[Index FAISS]
     Q[Question utilisateur] --> EXP[Expansion / rewrite optionnel]
+    PROFILE[Profil domaine optionnel] --> EXP
+    PROFILE --> CTX
     EXP --> QEMB[Embedding question]
     QEMB --> FAISS
     FAISS --> HYB[Hybrid retrieval FAISS + BM25]
@@ -31,18 +37,18 @@ sequenceDiagram
     participant R as Moteur RAG
     participant OAI as OpenAI Embeddings
     participant F as FAISS
-    participant B as BM25 / heuristiques
+    participant B as BM25 / profil optionnel
     participant X as Reranker optionnel
     participant L as LLM final
 
     U->>UI: Pose une question
     UI->>R: Transmet question + reglages
-    R->>R: Expansion synonymes / rewrite optionnel
+    R->>R: Expansion synonymes generiques ou profil metier
     R->>OAI: Embedding de la question
     OAI-->>R: Vecteur question
     R->>F: Recherche candidate_k voisins
     F-->>R: Chunks candidats
-    R->>B: Score lexical + regles metier
+    R->>B: Score lexical + regles du profil actif
     B-->>R: Classement hybride
     R->>X: Reranking optionnel LLM ou BGE
     X-->>R: Top chunks rerankes
@@ -73,7 +79,8 @@ flowchart TB
 ```mermaid
 flowchart LR
     Q[Question] --> Q1[Question originale]
-    Q --> Q2[Expansion synonymes]
+    P[Profil domaine] --> Q2[Expansion synonymes]
+    Q --> Q2
     Q --> Q3[Rewrite LLM optionnel]
     Q1 --> E[Embeddings requetes]
     Q2 --> E
@@ -100,6 +107,7 @@ flowchart LR
 | Chunking | Decouper par sections, phrases, tableaux | `rag/chunking.py` |
 | Embeddings | Transformer le texte en vecteurs et gerer le cache local | `rag/embeddings.py`, OpenAI `text-embedding-3-small` |
 | Vector store | Stocker et chercher les vecteurs | FAISS |
+| Profils domaine | Adapter le vocabulaire sans modifier le moteur | `rag/profiles.py`, JSON |
 | Hybrid retrieval | Combiner semantique et lexical | FAISS + BM25 maison |
 | Reranking | Reclasser les meilleurs candidats | BGE CrossEncoder ou LLM |
 | Generation | Produire la reponse finale | `gpt-4.1-nano`, `gpt-5.4-nano`, `gpt-5.4-mini` |
@@ -119,12 +127,11 @@ des chunks retrouves. La qualite depend donc d'abord du retrieval :
 
 - Python 3.11.4 pour stabiliser Streamlit, FAISS, PyTorch et BGE.
 - `rag/config.py`, `rag/models.py`, `rag/llm.py`, `rag/embeddings.py`,
-  `rag/chunking.py`, `rag/ingestion.py` et les fonctions lexicales / expansion /
-  multi-requetes / fusion candidats / filtres simples de `rag/retrieval.py` sont
-  extraits du moteur pour reduire le cote monolithique sans refactor risque.
+  `rag/chunking.py`, `rag/ingestion.py`, `rag/retrieval.py` et
+  `rag/profiles.py` isolent les responsabilites principales.
+- `rag/domain_profiles/` contient les synonymes et consignes metier activables.
 - `rag/engine.py` reste l'orchestrateur historique. Les prochaines extractions
-  doivent continuer par petits blocs : orchestration retrieval, reranking, puis
-  prompt/contexte une fois les dependances metier isolees.
+  doivent continuer par petits blocs : prompt/contexte, puis orchestration fine.
 - FAISS local pour garder un POC simple, rapide et sans service externe.
 - BM25 en complement de FAISS pour mieux capter les noms produits et acronymes.
 - BGE optionnel : utile pour departager des chunks proches, mais pas toujours

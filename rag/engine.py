@@ -1420,7 +1420,9 @@ def main() -> None:
     python rag_pdf.py indexer
     python rag_pdf.py demander "Quels sont les points importants ?"
     """
-    parseur = argparse.ArgumentParser(description="Mini RAG PDF avec OpenAI et FAISS.")
+    parseur = argparse.ArgumentParser(
+        description="RAG documentaire avec OpenAI, FAISS et sources citees."
+    )
     sous_commandes = parseur.add_subparsers(dest="commande", required=True)
 
     sous_commandes.add_parser(

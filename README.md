@@ -1,16 +1,48 @@
-# Mini RAG PDF
+# RAG documentaire générique pour démonstration Sales Engineering
 
-Ce projet montre un petit RAG en Python pour interroger des fichiers PDF.
-Il utilise OpenAI pour créer les embeddings et FAISS comme base vectorielle locale.
-La branche `rag-32-pdfs-streamlit` ajoute une interface Streamlit pour travailler plus confortablement avec un lot de PDF, par exemple 32 fichiers Pure Storage.
+Ce projet est un démonstrateur RAG local pour interroger un corpus de PDF avec
+des réponses sourcées. Il a été construit comme un support de crédibilité pour
+des rôles **Sales Specialist** ou **Sales Engineering** : expliquer une
+architecture IA concrète, montrer les arbitrages qualité, et démontrer comment
+transformer une documentation produit en assistant exploitable.
+
+Le coeur est volontairement générique :
+
+- embeddings OpenAI pour vectoriser les documents ;
+- FAISS comme base vectorielle locale ;
+- retrieval hybride FAISS + BM25 ;
+- reranking optionnel ;
+- sources cliquables ;
+- profils de domaine optionnels pour adapter le vocabulaire métier sans polluer
+  le moteur principal.
 
 Pour une explication d'architecture plus visuelle, lis aussi :
 
 ```text
+docs/sales-engineering-demo.md
 docs/architecture.md
 docs/refactorisation.md
 docs/performance.md
 ```
+
+## Pourquoi ce projet est intéressant pour un rôle Sales / SE
+
+Il montre trois compétences utiles en avant-vente :
+
+1. **Comprendre le besoin métier** : réduire le temps de recherche dans une base
+   documentaire, comparer des offres, retrouver des valeurs techniques et citer
+   les sources.
+2. **Expliquer une architecture IA simplement** : ingestion, chunking,
+   embeddings, recherche vectorielle, reranking, contexte, génération.
+3. **Garder le contrôle qualité** : corpus maîtrisé, sources traçables,
+   paramètres visibles, profils métier activables, pas de clé API dans le code.
+
+Le projet ne cherche pas à remplacer une plateforme d'entreprise complète. Il
+sert à démontrer rapidement une logique de solution : partir d'un corpus PDF,
+construire un index, poser une question métier, obtenir une réponse sourcée et
+auditable.
+
+## Ce que fait le RAG
 
 Un RAG fait plusieurs choses :
 
@@ -22,6 +54,19 @@ Un RAG fait plusieurs choses :
 6. Le script rerank ces candidats pour améliorer la qualité.
 7. Il construit un contexte limité en taille.
 8. Il demande au modèle OpenAI de répondre avec les sources.
+
+```mermaid
+flowchart LR
+    PDF[PDF] --> CHUNK[Chunking]
+    CHUNK --> EMB[Embeddings OpenAI]
+    EMB --> FAISS[Index FAISS]
+    Q[Question] --> RET[Retrieval hybride]
+    FAISS --> RET
+    RET --> RERANK[Reranking optionnel]
+    RERANK --> CTX[Contexte source]
+    CTX --> LLM[LLM final]
+    LLM --> A[Réponse citée]
+```
 
 ## 1. Installation
 
@@ -267,6 +312,11 @@ Cette trace sert à expliquer le projet comme un SE :
 question -> expansion -> embeddings -> FAISS -> BM25 -> reranker -> contexte -> LLM -> réponse sourcée
 ```
 
+Ce point est important en contexte vente interne : la trace transforme une
+démonstration "magique" en discussion maîtrisée. Elle permet d'expliquer
+pourquoi une réponse est bonne, pourquoi elle peut être incomplète, et quel
+levier activer pour l'améliorer.
+
 ## 8. Evaluation retrieval
 
 Un petit jeu d'évaluation vit dans :
@@ -315,24 +365,20 @@ Principe :
 6. Il sauvegarde les chunks dans `data/web/`.
 7. Il reconstruit l'index FAISS avec PDF + web.
 
-Par défaut, les domaines autorisés sont :
+Par défaut, aucun domaine web n'est autorisé. C'est un choix volontaire pour
+garder le RAG générique et éviter d'indexer accidentellement des pages hors
+périmètre.
 
-```text
-purestorage.com
-docs.purestorage.com
-support.purestorage.com
-```
-
-Tu peux les changer avec :
+Pour une démonstration sur un domaine précis, ajoute une liste blanche :
 
 ```bash
-export RAG_ALLOWED_WEB_DOMAINS="purestorage.com,docs.purestorage.com,support.purestorage.com"
+export RAG_ALLOWED_WEB_DOMAINS="example.com,docs.example.com"
 ```
 
 Commande CLI :
 
 ```bash
-python rag_pdf.py web-indexer "https://www.purestorage.com/..."
+python rag_pdf.py web-indexer "https://docs.example.com/..."
 ```
 
 Dans Streamlit, utilise l'onglet **Web contrôlé**.
@@ -364,8 +410,8 @@ Les briques deja sorties du moteur principal :
   candidats FAISS, diversification documentaire et filtres techniques simples.
 
 `rag/engine.py` reste l'orchestrateur historique du pipeline. La prochaine
-extraction recommandee est la suite du retrieval : heuristiques metier, puis
-reranking, en gardant des petites etapes testables.
+extraction recommandee est le découpage prompt/contexte, en gardant des petites
+etapes testables.
 
 Pour suivre la strategie de simplification :
 

@@ -24,7 +24,8 @@ large. La strategie retenue est donc progressive :
 | Environnement local | `rag/env.py` | Extrait |
 | Ingestion PDF / Web | `rag/ingestion.py` | Extrait |
 | Retrieval lexical / BM25 / expansion / multi-requetes / fusion candidats / filtres simples | `rag/retrieval.py` | Fonctions locales extraites |
-| Retrieval orchestration / heuristiques metier | `rag/engine.py` puis `rag/retrieval.py` | A extraire prudemment |
+| Profils metier optionnels | `rag/profiles.py`, `rag/domain_profiles/`, `rag/everpure.py` | Extrait |
+| Retrieval orchestration | `rag/engine.py` | Reste orchestrateur |
 | Reranking LLM / BGE | `rag/reranking.py` | Facade a extraire |
 | Prompt et contexte long | futur `rag/prompting.py` | A faire apres retrieval |
 
@@ -35,10 +36,10 @@ prompt, generation. Ces etapes se passent des objets entre elles. Une extraction
 trop rapide peut creer des imports circulaires ou changer subtilement le
 comportement.
 
-Exemple : le prompt utilise aujourd'hui des aides metier FlashArray/FlashBlade
-qui dependent de la detection du type de question. Cette detection sert aussi au
-retrieval adaptatif. Il faut donc isoler proprement cette logique avant de sortir
-le prompt dans son propre module.
+Exemple : les aides propres au profil Everpure ont ete sorties du moteur
+principal. Le prochain risque concerne surtout le prompt et le contexte long :
+ils doivent etre extraits sans changer les citations, le budget de contexte ou
+les sources cliquables.
 
 ## Regles de verification
 
@@ -68,17 +69,16 @@ depuis l'interface ou la CLI.
 
 ## Prochaine extraction recommandee
 
-La prochaine extraction logique est `rag/retrieval.py`.
+La prochaine extraction logique est `rag/prompting.py`.
 
-Elle doit etre faite avec plus de prudence que l'ingestion, car elle porte :
+Elle devrait contenir :
 
-- la normalisation lexicale ;
-- BM25 ;
-- l'expansion de requete ;
-- les filtres metadata ;
-- les heuristiques FlashArray / FlashBlade ;
-- les parametres adaptatifs.
+- la construction du contexte long ;
+- les regles de prompt generiques ;
+- l'injection des consignes du profil actif ;
+- le formatage des sources transmises au modele.
 
-Pour limiter le risque, il faudra probablement extraire d'abord les fonctions
-pures de scoring et de normalisation, puis seulement ensuite la fonction
-`rechercher()`.
+La fonction `rechercher()` peut rester dans `rag/engine.py` tant que
+l'orchestration globale n'est pas stabilisee. C'est un choix volontaire : mieux
+vaut un orchestrateur encore un peu large qu'un decoupage premature difficile a
+expliquer.
