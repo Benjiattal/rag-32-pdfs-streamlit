@@ -1,0 +1,61 @@
+[
+  {
+    "id": "gsi-revenue",
+    "question": "Quelles solutions Everpure peuvent generer des revenus pour un GSI ?",
+    "expected_docs": [
+      "sb-intro-to-everpure-platform.pdf",
+      "ds-evergreen-subscriptions-portfolio.pdf",
+      "ds-pure-storage-flasharray-family.pdf",
+      "ds-pure-storage-flashblade-s.pdf",
+      "ds-pure-storage-flashblade-e.pdf",
+      "ds-portworx-solution-architect.pdf"
+    ],
+    "expected_keywords": [
+      "Evergreen",
+      "FlashArray",
+      "FlashBlade",
+      "Portworx",
+      "Pure1"
+    ]
+  },
+  {
+    "id": "flashblade-family",
+    "question": "Donne moi la liste des baies de stockage de la gamme FlashBlade avec leur descriptif.",
+    "expected_docs": [
+      "ds-pure-storage-flashblade-s.pdf",
+      "ds-pure-storage-flashblade-e.pdf",
+      "sb-flashblade-exa-ai.pdf",
+      "tb-flashblade-exa.pdf"
+    ],
+    "expected_keywords": [
+      "FlashBlade//S",
+      "FlashBlade//E",
+      "FlashBlade//EXA"
+    ]
+  },
+  {
+    "id": "flasharray-xl-power",
+    "question": "Liste des consommations electriques des baies FlashArray XL.",
+    "expected_docs": [
+      "ds-flasharray-xl.pdf"
+    ],
+    "expected_keywords": [
+      "watts",
+      "FlashArray//XL"
+    ]
+  },
+  {
+    "id": "evergreen-benefits",
+    "question": "Quels sont les avantages de la solution Evergreen pour un GSI ?",
+    "expected_docs": [
+      "ds-evergreen-subscriptions-portfolio.pdf",
+      "sb-intro-to-everpure-platform.pdf"
+    ],
+    "expected_keywords": [
+      "Evergreen",
+      "subscription",
+      "upgrade",
+      "SLA"
+    ]
+  }
+]
